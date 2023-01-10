@@ -2,7 +2,7 @@
 
 * AWS
 
-  AWS app runner : https://mfynrwpra3.us-east-2.awsapprunner.com/
+  AWS shiny server : http://ec2-18-188-74-28.us-east-2.compute.amazonaws.com:3838/lunaViewerApp/
 
 * Docker
   
