@@ -1,0 +1,22 @@
+
+
+* AWS
+
+  AWS app runner : https://mfynrwpra3.us-east-2.awsapprunner.com/
+
+* Docker
+  
+  # build
+  docker build -t moonlight .
+  
+  # force full build 
+  docker build --no-cache -t moonlight .
+
+  # run
+  docker run -it --rm -p 3838:3838 moonlight
+
+  # clean up
+  docker system prune -a 
+
+  
+

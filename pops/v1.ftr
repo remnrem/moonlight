@@ -1,0 +1,80 @@
+
+% --------------------------------------------------------------------------------
+% Declare any channels used (required), sample rates
+% --------------------------------------------------------------------------------
+
+CH C4_M1   C4 C4.M1 C4-M1 C4.A1 C4_A1 C4-A1 128 uV
+
+CH C3_M2   C3 C3.M2 C3-M2 C3.A2 C3_A2 C3-A2 128 uV
+
+CH EOG     LOC_M2 LOC_FPz LOC_PG1 ROC_M2 LOC ROC E1 E2 E1_M2 E2_M2 E2_M1  128 uV
+
+
+% --------------------------------------------------------------------------------
+% Level 1 features
+%  block : feature {key=value key=value}
+% --------------------------------------------------------------------------------
+
+% full relative power spectra, up to 35 Hz 
+spec1:  RSPEC  C4_M1 C3_M2 lwr=0.75 upr=25 z-lwr=0.75 z-upr=25
+
+% pairwise coherence
+coh1:   COH C3_M2,C4_M1
+
+misc1: SKEW     C4_M1 C3_M2 EOG
+misc1: KURTOSIS C4_M1 C3_M2 EOG
+misc1: FD       C4_M1 C3_M2 EOG
+misc1: HJORTH   C4_M1 C3_M2 EOG
+
+% --------------------------------------------------------------------------------
+% Epoch/row exclusions based on level-1 features
+% --------------------------------------------------------------------------------
+
+misc1: OUTLIERS th=10
+
+% --------------------------------------------------------------------------------
+% Level 2 features: 
+%  to-block: feature block=from-block {key=value}
+% --------------------------------------------------------------------------------
+
+% SVD - in trainer mode, writes SVD solution (based on all individuals)
+%     - in test mode, reads this back to project individual subjects
+
+spec1.svd:  SVD block=spec1 nc=6 file=v1.spec1.svd
+
+% --------------------------------------------------------------------------------
+% Normalize all measures
+% --------------------------------------------------------------------------------
+
+zmisc1: NORM block=misc1
+zspec1.svd: NORM block=spec1.svd
+zcoh1: NORM block=coh1
+
+% --------------------------------------------------------------------------------
+% Temporal smoothing
+% --------------------------------------------------------------------------------
+
+zspec1.svd.denoised: DENOISE block=zspec1.svd lambda=0.5
+zcoh1.denoised: DENOISE block=zcoh1 lambda=0.5
+zmisc1.denoised: DENOISE block=zmisc1 lambda=0.5
+
+zspec1.svd.smoothed: SMOOTH block=zspec1.svd half-window=10
+zcoh1.smoothed: SMOOTH block=zcoh1 half-window=10
+zmisc1.smoothed: SMOOTH block=zmisc1 half-window=10
+
+% --------------------------------------------------------------------------------
+% Time track
+% --------------------------------------------------------------------------------
+
+time1: TIME 
+
+% --------------------------------------------------------------------------------
+%
+% Final feature selection (blocks as defined above)
+%
+% --------------------------------------------------------------------------------
+
+SELECT zspec1.svd           coh1           misc1
+SELECT zspec1.svd.denoised zcoh1.denoised zmisc1.denoised
+SELECT zspec1.svd.smoothed zcoh1.smoothed zmisc1.smoothed
+SELECT time1
