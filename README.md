@@ -5,6 +5,6 @@ Moonlight/Luna viewer
 
  - enable logs in shiny server context
  - set write permissions for app
- - fix epoch offset issue for EDF+D (SMP)
+ - [DONE] fix epoch offset issue for EDF+D (SMP)
  - fix mask reset when refresh/reload (SMP)
 

@@ -1,5 +1,4 @@
 
-
 #//    --------------------------------------------------------------------
 #//
 #//    This file is part of Luna.
@@ -28,7 +27,6 @@ library(luna)
 library(shinybusy)
 library(shinythemes)
 library(DT)
-
 
 # ------------------------------------------------------------
 # Options
@@ -81,7 +79,7 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
       fileInput( "files" ,
       		 "Moonlight/Luna", 
                  multiple = T ,
-		 accept = c( ".edf", ".xml" , ".annot" , ".eannot" ) ),
+		 accept = c( ".edf", ".edfz", ".gz", ".idx" , ".xml" , ".annot" , ".eannot" ) ),
 
       textOutput( "text.header1a" ),
 
@@ -254,6 +252,8 @@ values <- reactiveValues( opt = list() )
 
 observeEvent( input$files , {
 
+#cat( file=stderr(), "in file reader...\n" )
+
 # clear all
  values$opt  <- NULL
  values$soap <- NULL
@@ -334,14 +334,13 @@ init <- function() {
 # epoch recording & SEGMENTS
   cat( "init raw EPOCHs and SEGMENTS\n" )
   ret <- leval( "EPOCH verbose & SEGMENTS" )
-  print( ret$EPOCH )
-  print( ret$EPOCH$E )
+#  print( ret$EPOCH )
+#  print( ret$EPOCH$E )
   
   values$opt[[ "init.epochs" ]] <- ret$EPOCH$E
   values$opt[[ "ne" ]] <- dim(ret$EPOCH$E)[1]
   values$opt[[ "init.segidx" ]] <- ret$SEGMENTS$SEG[ , c("START","STOP") ]
-
-
+ 
 # get stage-aligned epochs and hypnogram
   cat( "init hypnogram\n" )
     ret <- leval( "EPOCH align verbose" )
@@ -388,7 +387,7 @@ isolate( {
 
 # get HEADERS/ANNOTS (raw eppochs)
     ret <- leval( "SEGMENTS & HEADERS & ANNOTS & DUMP-MASK" )
-print( ret$HEADERS$BL  )
+#print( ret$HEADERS$BL  )
 
     # check records set? 
     if ( is.null( ret$HEADERS$BL  ) )
@@ -1144,7 +1143,6 @@ output$table.soap.stages <- DT::renderDataTable({
   req( values$hasdata , values$hasstaging , values$soap )
 
   df <- values$soap[[ "soap.stages" ]]
-  print(df)
   df <- df[ , c( "SS" , "DUR_OBS" , "DUR_PRD" , "F1" ) ] 
   df <- df[ df$SS != "?" , ]
   df$DUR_OBS <- round( df$DUR_OBS , 2 )
@@ -1256,7 +1254,6 @@ output$table.pops.stages <- DT::renderDataTable({
   req( values$hasdata , values$hasstaging , values$pops )
 
   df <- values$pops[[ "pops.stages" ]]
-  print(df)
   df <- df[ , c( "SS" , "ORIG" , "PRF" , "F1" ) ] 
   df <- df[ df$SS != "?" , ]
   df$ORIG <- round( df$ORIG , 2 )
@@ -1314,7 +1311,7 @@ output$table.pops.epochs <- DT::renderDataTable({
 output$sel.pops.features <- DT::renderDataTable({
   req( values$pops[[ "SHAP" ]] == 1 )
   ftrs <- values$pops[[ "pops.SHAP" ]]
-  print( head( ftrs ) )
+
   df <- data.frame( FTR = ftrs$FTR[ ftrs$SS == "N1" ],
                     N1 = round( ftrs$SHAP[ ftrs$SS == "N1" ] , 2) ,
 		    N2 = round( ftrs$SHAP[ ftrs$SS == "N2" ] , 2) ,	
@@ -1410,9 +1407,9 @@ output$plot.pops.features <- renderPlot({
       {
         req( values$hasdata , c(input$channels, input$annots ) )
 
-        # reset MASK
-#        lrefresh()
-
+	# all epochs
+	dfe <- values$opt[[ "init.epochs" ]][ , c( "START" , "STOP" ) ]
+	
         epochs <- values$view[[ "epochs" ]]
 	zoom   <- values$view[[ "zoom" ]]
         bp     <- values$view[[ "bandpass" ]]
@@ -1449,7 +1446,7 @@ output$plot.pops.features <- renderPlot({
           # we should now have a) the spanning epochs (for ldata() ) in values$view[[ "epochs" ]]
           # and the range to display in values$view[[ "zoom" ]] (in seconds)
 
-#              cat( "epochs : " , epochs , "\n" )
+#              cat( "\n\nepochs : " , epochs , "\n" )
 #              cat( "seconds: " , secs , "\n" )
 
           # update raw signals status as needed: if more than 5 mins, use summary stats
@@ -1543,15 +1540,16 @@ output$plot.pops.features <- renderPlot({
               for (ch in rev(chs)) {
                 req(epochs[1] >= 1, epochs[2] <= values$opt[[ "ne" ]] )
 
-               cat( "ch",ch,"\n")
-               cat( "ep" , epochs , "\n")
-	       cat( "secs" , secs , "\n" )
+#               cat( "ch",ch,"\n")
+#               cat( "ep" , epochs , "\n")
+#	       cat( "secs" , secs , "\n" )
 	       
-                dat <- ldata(epochs[1]:epochs[2], chs = ch)
+#                dat <- ldata(epochs[1]:epochs[2], chs = ch)
+                qry <- list( range( dfe$START[ epochs[1] ] , dfe$STOP[ epochs[2] ] ) )
+		dat <- ldata.intervals( qry , chs = ch)
                 dat <- dat[dat$SEC >= secs[1] & dat$SEC <= secs[2], ]
                 ts <- dat$SEC
 		empty <- length(ts) == 0
-		print( head( dat ) )
 		
 		if ( empty )
 		{
@@ -1565,7 +1563,7 @@ output$plot.pops.features <- renderPlot({
 		{ 
 
                 # draw the actual signal
-                dy <- dat[, 4]
+                dy <- dat[, 3]
 		# flat?
 		yr <- range(dy,na.rm=T)
 
@@ -1870,6 +1868,8 @@ output$plot.pops.features <- renderPlot({
  observeEvent( input$reset , {
    req( values$hasdata )
 
+   leval( "MASK clear" )
+   
    lrefresh()
 
    init()
@@ -1889,8 +1889,7 @@ output$plot.pops.features <- renderPlot({
    isolate({
     ret <- leval( "RE & EPOCH align verbose & DUMP-MASK " )    
     values$opt[[ "curr.epochs" ]]   <- ret$EPOCH$E
-    values$opt[[ "curr.ne" ]] <- dim(ret$EPOCH$E)[1]
-    values$opt[[ "curr.ne" ]]
+    values$opt[[ "curr.ne" ]] <- dim(ret$EPOCH$E)[1]    
     values$opt[[ "unmasked" ]] <- ret$DUMP_MASK$E$E[ ret$DUMP_MASK$E$EMASK == 0 ]
     values$opt[[ "included" ]] <- ret$DUMP_MASK$E$E
    } )
