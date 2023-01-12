@@ -1,4 +1,8 @@
 
+# POPS models do not swap expected # of predictors.
+# canonical page
+
+
 #//    --------------------------------------------------------------------
 #//
 #//    This file is part of Luna.
@@ -37,9 +41,9 @@ options(shiny.maxRequestSize = 3000 * 1024^2)
 # set error handler for lunaR
 lmoonlight_mode()
 
-pops.path    = "./pops"
-pops.lib     = "v1"
-pops.version = "31-Dec-2022"
+pops.path     = "./pops"
+pops.libs     = c( "s1" , "v1" )
+pops.versions = c( "11-Jan-2023", "31-Dec-2022" )
 
 pal10 <- c(
   rgb(255, 88, 46, max = 255),
@@ -122,7 +126,9 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
     mainPanel( width=10, 
      br(),
      plotOutput( "psd.plot" , width = "100%", height = "80px"),
-     plotOutput( "hypnogram" , width = "100%", height = "40px") ,
+     plotOutput( "hypnogram" , width = "100%", height = "40px",
+                  dblclick = "hypno_dblclick",
+                  brush = brushOpts(id = "hypno_brush", direction = "x", resetOnNew = F)) ,
      plotOutput( "mask.plot" , width = "100%", height = "15px") ,
      hr(style = "border-top: 1px solid #000000;"),
 
@@ -165,10 +171,27 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
                     column(6, DT::dataTableOutput( "table.soap.stages" , width="95%" ) ) ) ) ,
 
         tabPanel( "POPS",
-          fluidRow( column(3, selectInput("pops.eeg1", label=h5("EEG1 (C3-M2)"), choices=list(),multiple=F,selectize=F )),
-	            column(3, selectInput("pops.eeg2", label=h5("EEG2 (C4-M1)"), choices=list(),multiple=F,selectize=F )),
-	            column(3, selectInput("pops.eog", label=h5("EOG (E1-M2)"), choices=list(),multiple=F,selectize=F )),
-		    column(3, hr(), actionButton("pops.run", "Run POPS" ) , actionButton("pops.run2", "Run POPS+SHAP" ) ) ),
+
+          fluidRow(
+
+           column( 9 ,
+	     tabsetPanel( id = "popstabs",
+
+             tabPanel( "M1" ,
+	       fluidRow(
+	        column(4, selectInput("pops.m1.eeg1", label=h5("EEG (C4-M1)"), choices=list(),multiple=F,selectize=F ) ) ) ) ,
+
+             tabPanel( "M2" ,
+	       fluidRow(
+	        column(4, selectInput("pops.m2.eeg1", label=h5("EEG1 (C3-M2)"), choices=list(),multiple=F,selectize=F )),
+	        column(4, selectInput("pops.m2.eeg2", label=h5("EEG2 (C4-M1)"), choices=list(),multiple=F,selectize=F )),
+	        column(4, selectInput("pops.m2.eog",  label=h5("EOG (E1-M2)"), choices=list(),multiple=F,selectize=F ))) ) 
+
+                 )
+                ) , 
+
+          column(3, hr(), actionButton("pops.run", "Run POPS" ) , checkboxInput("popsshap", label = "SHAP", value = F) ) ) , 
+		    
           tabsetPanel( 
   	   tabPanel( "Summaries" , plotOutput( "plot.pops" , width="100%" , height = "150px"  ),
                                    fluidRow( column(6, DT::dataTableOutput( "table.pops" ) ) ,
@@ -181,7 +204,7 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
            tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;")) )
          ),
 
-        tabPanel("Annotations",
+        tabPanel("Annots",
           plotOutput("annot.view", width = "100%", height = "175px"),
           br(),
          tabsetPanel(
@@ -214,8 +237,47 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
 	  hr()
         ),
 
+       tabPanel("Manips",
+         tabsetPanel(
+           tabPanel("Re-reference" , 
+	            fluidRow(
+		     column( 4 , selectInput( "reref1" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+		     column( 4 , selectInput( "reref2" , label = h5("Reference(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+		     column( 4 , hr(col="white"), actionButton("doreref", "Re-reference" ) ) ) ) ,
+           tabPanel("Resample" ,
+                    fluidRow(
+                     column( 4 , selectInput( "resample" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+                     column( 4 , numericInput("resamplerate", label = h5("Sample rate (Hz)"), min = 10 , max = 256 , value = 128 ) ) ,
+                     column( 4 , hr(col="white"), actionButton("doresample", "Resample" ) ) ) ) ,
+	   tabPanel("Rename" ,
+	            fluidRow(
+                     column( 4 , selectInput( "renameold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("renamenew", label = h5("New label") ) ) ,
+                     column( 4 , hr(col="white"), actionButton("dorename", "Rename channels" ) ) ) ) ,
+           tabPanel("Drop" ,
+                    fluidRow(
+                     column( 4 , selectInput( "drop" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+                     column( 4 , hr(col="white"), actionButton("dodrop", "Drop channels" ) ) ) ) ,
+           tabPanel("Copy" ,
+	   	    fluidRow(
+                     column( 4 , selectInput( "copyold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("copytag", label = h5("New tag") ) ),
+                     column( 4 , hr(col="white"), actionButton("docopy", "Copy channel" ) ) ) ) ,
+	   tabPanel("Transform" ,
+	            fluidRow(
+                     column( 4 , selectInput( "transch" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("transexp", label = h5("Expression") ) ),
+                     column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ) 
+	   ),
+        tags$head(tags$style("#reref1{height: 270px; width: 175px; ") ) ,
+        tags$head(tags$style("#reref2{height: 270px; width: 175px; ") ) ,
+        tags$head(tags$style("#drop{height: 270px; width: 175px; ") ) , 
+        tags$head(tags$style("#resample{height: 270px; width: 175px; ") ) 
+       ) , 
+
+
        tabPanel("Luna", hr( col="white" ) , 
-		  fluidRow( column( 9 , textAreaInput("eval" , NULL , width = '100%' , height = '60px' , resize='none' ,
+ 		  fluidRow( column( 9 , textAreaInput("eval" , NULL , width = '100%' , height = '60px' , resize='none' ,
 		                        placeholder = "(Enter Luna commands here)" ) )  ,
 			    column( 1 , actionButton("go", "Execute") ) ) , 			    
 	           fluidRow( column( 9 , verbatimTextOutput( "evalout" , placeholder= T ) ),    
@@ -261,6 +323,7 @@ observeEvent( input$files , {
  values$view <- NULL
  values$evalout <- NULL
  values$nz <- 1
+ values$LOFF <- values$LON <- "." 
  
 # other cleares
     updateSelectInput(
@@ -340,7 +403,8 @@ init <- function() {
   values$opt[[ "init.epochs" ]] <- ret$EPOCH$E
   values$opt[[ "ne" ]] <- dim(ret$EPOCH$E)[1]
   values$opt[[ "init.segidx" ]] <- ret$SEGMENTS$SEG[ , c("START","STOP") ]
- 
+  session$resetBrush("hypno_brush")
+
 # get stage-aligned epochs and hypnogram
   cat( "init hypnogram\n" )
     ret <- leval( "EPOCH align verbose" )
@@ -352,6 +416,7 @@ init <- function() {
     if ( values$hasstaging ) { 
      values$opt[[ "hypno.stats" ]]  <- ret$HYPNO$BL
      values$opt[[ "hypno.epochs" ]] <- ret$HYPNO$E
+     values$opt[[ "all.hypno.epochs" ]] <- ret$HYPNO$E
      values$opt[[ "ss" ]]           <- ret$HYPNO$E[ , c("E","STAGE") ] 
      values$opt[[ "hypno.cycles" ]] <- ret$HYPNO$C
      values$opt[[ "hypno.stages" ]] <- ret$HYPNO$SS
@@ -373,6 +438,20 @@ cat( " has-staging?" , values$hasstaging , "\n" )
 
 }
 
+
+# ------------------------------------------------------------
+# update hypnogram
+
+update.hypnogram <- function() {
+    req( values$hasstaging  )
+    ret <- leval( paste( "HYPNO epoch lights-off=" , values$LOFF , " lights-on=" , values$LON , sep="" ) )
+    values$opt[[ "hypno.stats" ]]  <- ret$HYPNO$BL
+    values$opt[[ "hypno.epochs" ]] <- ret$HYPNO$E
+    values$opt[[ "all.hypno.epochs" ]] <- ret$HYPNO$E
+    values$opt[[ "ss" ]]           <- ret$HYPNO$E[ , c("E","STAGE") ] 
+    values$opt[[ "hypno.cycles" ]] <- ret$HYPNO$C
+    values$opt[[ "hypno.stages" ]] <- ret$HYPNO$SS
+}
 
 # ------------------------------------------------------------
 # update channels/annots, etc
@@ -473,6 +552,20 @@ isolate( {
         selected = 0
       )
 
+# manips
+
+    updateSelectInput( session, "reref1",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "reref2",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "resample", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "drop",      choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "transch",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "copyold",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )    
+    updateSelectInput( session, "renameold", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+
+# others
+
+
+
       clear_sel_inst()
 
     s50 <- values$opt[[ "chs" ]][ values$opt[[ "sr" ]] >= 50 ]
@@ -493,26 +586,11 @@ isolate( {
        selected = 0
       )
 
-    updateSelectInput(
-       session,
-       "pops.eeg1",
-       choices = s50,
-       selected = 0
-      )
-
-    updateSelectInput(
-       session,
-       "pops.eeg2",
-       choices = s50,
-       selected = 0
-      )
-
-    updateSelectInput(
-       session,
-       "pops.eog",
-       choices = s50,
-       selected = 0
-      )
+    updateSelectInput( session, "pops.m1.eeg1", choices = s50, selected = 0 )
+    
+    updateSelectInput( session, "pops.m2.eeg1", choices = s50, selected = 0 )
+    updateSelectInput( session, "pops.m2.eeg2", choices = s50, selected = 0 )
+    updateSelectInput( session, "pops.m2.eog", choices = s50, selected = 0 )
 
     # Get mask
     values$opt[[ "unmasked" ]] <- ret$DUMP_MASK$E$E[ ret$DUMP_MASK$E$EMASK == 0 ]
@@ -739,6 +817,35 @@ c( values$opt[[ "header1" ]]$EDF_TYPE, "with" ,
   })
 
 
+  observeEvent(input$hypno_dblclick, {
+      session$resetBrush("hypno_brush")
+      values$opt[[ "hypno.epochs" ]] <- values$opt[[ "all.hypno.epochs" ]]
+       values$LOFF <- values$LON <- "."
+       update.hypnogram()
+    })
+
+    observeEvent(input$hypno_brush, {
+      brush <- input$hypno_brush
+      # x axis is in hrs
+      ne <- values$opt[[ "ne" ]]
+      if ( ! is.null( brush ) )
+      {
+        # 120=60^2/30
+        mine <- floor( brush$xmin * 120 ) + 1
+	maxe <- ceiling( brush$xmax * 120 ) + 1
+	cat( mine, maxe, "is min/max E\n" )
+	values$opt[[ "hypno.epochs" ]]$STAGE <- rep( "L" , ne )
+        print( values$opt[[ "hypno.epochs" ]] )
+        values$opt[[ "hypno.epochs" ]]$STAGE[ mine:maxe ] <- values$opt[[ "all.hypno.epochs" ]]$STAGE[ mine:maxe ]
+        print( values$opt[[ "hypno.epochs" ]] )
+	# set LON / LOFF in seconds
+	values$LOFF <- brush$xmin * 3600
+	values$LON <- brush$xmax * 3600
+	update.hypnogram()
+      }
+    })
+
+
  # ------------------------------------------------------------
  # Hypnogram statistics
  # 
@@ -825,7 +932,7 @@ DT::datatable( m ,
                                searching = FALSE ,
 			       columnDefs = list(list(className = "dt-left", targets = "_all"))),
                  rownames= FALSE ,
-		 colnames = c("Time-point","Description","HMS:clock-time","E:elapsed(m)", "T:hours-past-prior-midnight" ) )
+		 colnames = c("Time-point","Description", "Clock-time", "Elapsed (mins)", "Time past prior midnight (hrs)" ) )
 		         
   })
 
@@ -1167,61 +1274,55 @@ output$table.soap.stages <- DT::renderDataTable({
 # POPS
 
 observeEvent( input$pops.run , {
-  req( values$hasdata , input$pops.eog , input$pops.eeg1 , input$pops.eeg2 ) 
+  req( values$hasdata )
 
-  aliases <- paste( "alias=EOG|" , input$pops.eog , 
-                    ",C3_M2|" , input$pops.eeg1 ,
-                    ",C4_M1|" , input$pops.eeg2 , sep="" )
+  if ( input$popstabs == "M1" )
+  {
+    req( input$pops.m1.eeg1 )
+    pops.lib <- pops.libs[1]
+    aliases <- paste( "alias=CEN|" , input$pops.m1.eeg1 , sep="" )   
+  }
+  else if ( input$popstabs == "M2" )
+  {
+   req( input$pops.m2.eog , input$pops.m2.eeg1 , input$pops.m2.eeg2 ) 
+   pops.lib <- pops.libs[2]
+   aliases <- paste( "alias=EOG|" , input$pops.m2.eog , 
+                        ",C3_M2|" , input$pops.m2.eeg1 ,
+                        ",C4_M1|" , input$pops.m2.eeg2 , sep="" )
+  }
 		    
-  cmd <- paste( "POPS force-reload output-features path=" , pops.path , " lib=" , pops.lib , " " , aliases , sep="" )
+  cmd <- paste( "POPS force-reload output-features path=" , pops.path ,
+                " lib=" , pops.lib , " " ,
+		ifelse( input$popsshap , " SHAP " , "" ) , 
+		aliases ,
+		" lights-off=" , values$LOFF ,
+	        " lights-on=" , values$LON , 
+		sep="" )
+ 
   ret <- leval( cmd )  
+
   values$pops[[ "pops" ]] <- ret$POPS$BL
   values$pops[[ "pops.epochs" ]] <- ret$POPS$E
   values$pops[[ "pops.features" ]] <- ret$POPS$E_FTR
   values$pops[[ "pops.stages" ]] <- ret$POPS$SS
+
+  if ( input$popsshap ) { 
+   values$pops[[ "pops.SHAP" ]] <- ret$POPS$FTR_SS
+   values$pops[[ "SHAP" ]] <- 1
+  } else { 
   values$pops[[ "SHAP" ]] <- 0
-
-  # feature list
-  updateSelectInput(
-      session,
-      "sel.pops.features2",
-      choices = unique( ret$POPS$E_FTR$FTR ),
-      selected = 0
-	)
-
-  # update channels, annots, etc
-  update()
-})
-
-# POPS + SHAP
-observeEvent( input$pops.run2 , {
-  req( values$hasdata , input$pops.eog , input$pops.eeg1 , input$pops.eeg2 ) 
-
-  aliases <- paste( "alias=EOG|" , input$pops.eog , 
-                    ",C3_M2|" , input$pops.eeg1 ,
-                    ",C4_M1|" , input$pops.eeg2 , sep="" )
-		    
-  cmd <- paste( "POPS force-reload SHAP output-features path=" , pops.path , " lib=" , pops.lib , " " , aliases , sep="" )
-  ret <- leval( cmd )  
-  values$pops[[ "pops" ]] <- ret$POPS$BL
-  values$pops[[ "pops.epochs" ]] <- ret$POPS$E
-  values$pops[[ "pops.features" ]] <- ret$POPS$E_FTR
-  values$pops[[ "pops.stages" ]] <- ret$POPS$SS
-  values$pops[[ "pops.SHAP" ]] <- ret$POPS$FTR_SS
-  values$pops[[ "SHAP" ]] <- 1
+  }
 
 # feature list
   updateSelectInput(
       session,
       "sel.pops.features2",
       choices = unique( ret$POPS$E_FTR$FTR ),
-      selected = 0
-	)
-
-# update channels, annots, etc
+      selected = 0 )
+	
+  # update channels, annots, etc
   update()
 })
-
 
 output$plot.pops <- renderPlot({
   req( values$hasdata , values$pops )
@@ -1859,6 +1960,55 @@ output$plot.pops.features <- renderPlot({
           paste0("Selected value is out of range")
         }
       })
+
+
+
+ # ------------------------------------------------------------
+ # Manip functions
+
+ observeEvent( input$doreref , { 
+   req( input$reref1 , input$reref2 )
+   pris <- paste( input$reref1 , collapse="," )
+   refs <- paste( input$reref2 , collapse="," )
+   leval( paste( "REFERENCE sig=" , pris , " ref=" , refs , sep="" ) )
+   update()   
+   } )
+
+ observeEvent( input$doresample , {
+  req( input$resample , input$resamplerate )
+  pris <- paste( input$resample , collapse="," )
+  leval( paste( "RESAMPLE sig=" , pris , " sr=" , input$resamplerate , sep="" ) )
+  update()
+ } )
+
+ observeEvent( input$dorename , {
+  req( input$renameold , input$renamenew )
+  leval( paste( "RENAME sig=" , input$renameold , " new=" , input$renamenew , sep="" ) )
+  update()
+ } )
+
+ observeEvent( input$dodrop , {
+  req( input$drop )
+  leval( paste( "DROP sig=" , input$drop , sep="" ) )
+  update()
+ } )
+
+ observeEvent( input$docopy , {
+  req( input$copyold , input$copytag )
+  leval( paste( "COPY sig=" , input$copyold , " tag=" , input$copytag , sep="" ) ) 
+  update()
+ } )
+
+
+ observeEvent( input$dotrans , {
+  req( input$transch , input$transexp )
+  cmd <- paste( "TRANS sig=" , input$transch , " expr=\" " , input$transexp , "\"" , sep="" )
+  cat( "trans[" , cmd , "]\n" )
+  leval( cmd )
+  update()
+ } )
+
+
 
 
  # ------------------------------------------------------------
