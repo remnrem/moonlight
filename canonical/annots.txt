@@ -1,0 +1,259 @@
+% --------------------------------------------------------------------------------
+% NSRR harmonized annotation mappings
+% version 0.2, 16th July 2021
+% --------------------------------------------------------------------------------
+
+% ensure that these over-ride internal Luna mappings
+% although these should be similar to below, in any case
+
+nsrr-remap	F
+
+% Notes:
+%  - form: 'remap primary|alias1|alias2'
+%  - swaps 'alias1' (or 'Alias1' , etc) to 'primary'
+%  - n.b. alias-matching is case-insensitive
+%  - primary case is respected (and must be consistent within a file)
+%  - a few apparent typos reflect typos in the original NSRR annotations
+%  - cannot have '|' in the primary labels
+%  - '|' characters in an alias must be in quotes
+
+
+% --------------------------------------------------------------------------------
+%
+% Arousals
+% 
+% --------------------------------------------------------------------------------
+
+remap	arousal|"Arousal ()"
+remap	arousal|"Arousal|Arousal ()"
+remap	arousal|"Arousal|Arousal (Standard)"
+remap	arousal|"Arousal_(STANDARD)"
+remap	arousal|"Arousal|Arousal_(Arousal)"
+remap	arousal|"ASDA arousal|Arousal (ADSA)"
+remap	arousal|"ASDA arousal|Arousal (ASDA)"
+remap	arousal|"Arousal (ASDA)"
+remap	arousal|"Arousal_(Asda)"
+
+remap	arousal/spontaneous|"Arousal (ARO SPONT)"
+remap	arousal/spontaneous|"Spontaneous arousal|Arousal (apon aro)"
+remap	arousal/spontaneous|"Spontaneous arousal|Arousal (ARO SPONT)"
+remap	arousal/spontaneous|"Spontaneous arousal|Arousal (SPON ARO)"
+
+remap	arousal/respiratory|"Arousal resulting from respiratory effort|Arousal (ARO RES)"
+remap	arousal/respiratory|RERA
+remap	arousal/respiratory|"Arousal (ARO RES)"
+remap	arousal/respiratory|"Arousal resulting from respiratory effort|Arousal (RESP ARO)"
+remap	arousal/respiratory|"Respiratory effort related arousal|RERA"
+
+remap	arousal/external|"External arousal|Arousal (External Arousal)"
+remap	arousal/external|"Arousal_(External_Arousal)"
+
+remap	arousal/cheshire|"Arousal resulting from Chin EMG|Arousal (Cheshire)"
+remap	arousal/cheshire|"Arousal_(CHESHIRE)"
+
+remap	arousal/lm|arousal_lm
+remap	arousal/lm|lml_arousal
+remap	arousal/lm|lmr_arousal
+remap	arousal/lm|lmb_arousal
+remap	arousal/lm|"Arousal_(ARO_Limb)"
+
+remap	arousal/plm|arousal_plm
+remap	arousal/plm|"Arousal_resulting_from_periodic_leg_movement|Arousal_(PLM)"
+remap	arousal/plm|"Arousal_resulting_from_periodic_leg_movement|Arousal_(PLM_ARO)"
+
+
+% --------------------------------------------------------------------------------
+%
+% Respiratory events
+%
+% --------------------------------------------------------------------------------
+
+remap	apnea|"Apnea"
+
+% even if we don't expect an unqualified 'apnea' annotation, we want to specify the
+% root directly (apnea/) as a valid term, so that the annot-unmapped command does
+% not flag apnea/central, etc, as being unmapped.. we might want to relax/fix that in
+% future, but for now, just means always add the root (class) if using any class/inst
+% remappings; if you never want to allow this to be actually used, just put a garbage term
+% as the alias,e.g.
+%  remap  apnea|"&*^#*&$^-do_not_expect_this_to_occur_982309823"
+
+remap	apnea/obstructive|"Obstructive apnea|Obstructive Apnea"
+remap	apnea/obstructive|"Obstructive Apnea"
+remap	apnea/obstructive|"apnea_obstructive"
+remap	apnea/obstructive|"Obstructive_apnea|APNEA-OBSTRUCTIVE"
+
+remap	apnea/central|"Central Apnea"
+remap	apnea/central|"apnea_central"
+remap	apnea/central|"Central apnea|Central Apnea"
+remap	apnea/central|"Central_apnea|APNEA-CENTRAL"
+
+remap	apnea/mixed|"Mixed Apnea"
+remap	apnea/mixed|"apnea_mixed"
+remap	apnea/mixed|"Mixed apnea|Mixed Apnea"
+remap	apnea/mixed|"Mixed apnea|APNEA-MIXED"
+
+remap	hypopnea|"Hypopnea|Hypopnea"
+remap	hypopnea/obstructive|"hypopnea_obstructive"
+remap	hypopnea/obstructive|"Obstructive_Hypopnea"
+remap	hypopnea/central|"hypopnea_central"
+
+remap	periodic_breathing|"Periodic Breathing"
+remap	periodic_breathing|"Periodic breathing|Periodic Breathing"
+
+remap	respiratory_paradox|"Respiratory Paradox"
+
+remap	snoring|Snoring
+
+remap	cheynestokes_breathing|cheynestokes_breathing
+
+
+% --------------------------------------------------------------------------------
+%
+% Respiratory events
+%
+% --------------------------------------------------------------------------------
+
+remap	desat|"SpO2 desaturation"
+remap	desat|"SpO2 desaturation|SpO2 desaturation"
+remap	desat|"SpO2 desaturation|DESAT"
+
+% TODO - need to add COHORT specific mappings for this...
+remap	unsure|"Unsure"|"Unsure|Unsure"
+
+
+% --------------------------------------------------------------------------------
+%
+% Epoch-level sleep staging
+%
+% --------------------------------------------------------------------------------
+
+remap	N1|NREM1
+remap	N1|"Stage 1 sleep|1"
+
+remap	N2|NREM2
+remap	N2|"Stage 2 sleep|2"
+
+remap	N3|NREM3
+remap	N3|"Stage 3 sleep|3"
+remap	N3|N4
+remap	N3|NREM4
+remap	N3|"Stage 4 sleep|4"
+
+remap	R|REM
+remap	R|"REM sleep|5"
+
+remap	W|"Wake"
+remap	W|"Wake|0"
+
+remap	U|"Unscored"
+remap	U|"Unscored|9"
+
+remap	?|"Unknown"
+
+remap	M|"Movement|6"
+
+remap	L|"Lights"
+remap	L|"Lights On"
+remap	L|"LightsOn"
+
+% instance when lights go off
+remap	lights_off|"LightsOff"
+remap	lights_off|"Lights Off"
+
+
+
+% --------------------------------------------------------------------------------
+%
+% Periodic leg movements & limb movements
+%
+% --------------------------------------------------------------------------------
+
+% generic (internal of) movement - not a staging annotation
+remap	movement|Movement
+
+remap	PLM|"Periodic leg movement"
+remap	PLM|"Periodic leg movement|PLM"
+
+remap	PLM/left|"Periodic leg movement - left|PLM (Left)"
+remap	PLM/left|"PLM (Left)"
+
+remap	PLM/right|"Periodic leg movement - right|PLM (Right)"
+remap	PLM/right|"PLM (Right)"
+
+
+remap	LM|"Limb Movement"
+remap	LM|"Limb movement|Limb Movement"
+
+remap	LM/left|"Limb Movement (Left)"
+remap	LM/left|"Limb movement - left|Limb Movement (Left)"
+
+remap	LM/right|"Limb Movement (Right)"
+remap	LM/right|"Limb movement - right|Limb Movement (Right)"
+
+
+% --------------------------------------------------------------------------------
+%
+% Artifacts
+%
+% --------------------------------------------------------------------------------
+
+remap	artifact|"Signal artifact|SIGNAL-ARTIFACT"
+
+remap	artifact/respiratory|"Respiratory artifact"
+remap	artifact/respiratory|"Respiratory artifact|Respiratory artifact"
+
+remap	artifact/proximal_pH|"Proximal pH artifact"
+remap	artifact/proximal_pH|"Proximal_pH_artifact|Proximal_pH_artifact"
+remap	artifact/distal_pH|"Distal pH artifact"
+remap	artifact/pH|"Proximal_pH|Distal_pH_artifact"
+
+remap	artifact/blood_pressure|"Blood pressure artifact"
+remap	artifact/blood_pressure|"Blood_pressure_artifact|Blood_pressure_artifact"
+
+remap	artifact/TcCO2|"TcCO2 artifact"
+remap	artifact/TcCO2|"TcCO2 artifact|TcCO2 artifact"
+
+remap	artifact/SpO2|"SpO2 artifact"
+remap	artifact/SpO2|"SpO2 artifact|SpO2 artifact"
+
+remap	artifact/EtCO2|"EtCO2 artifact"
+remap	artifact/EtCO2|"EtCO2 artifact|EtCO2 artifact"
+
+remap	artifact/body_temperature|"Body_temperature_artifact|Body_temperature_artifact"
+
+
+% --------------------------------------------------------------------------------
+%
+% Body position 
+%
+% --------------------------------------------------------------------------------
+
+remap	position/left|"Body position change to left|POSITION-LEFT"
+remap	position/right|"Body position change to right|POSITION-RIGHT"
+remap	position/prone|"Body position change to prone|POSITION-PRONE"
+remap	position/supine|"Body position change to supine|POSITION-SUPINE"
+remap	position/upright|"Body position change to upright|POSITION-UPRIGHT"
+
+
+% --------------------------------------------------------------------------------
+%
+% Arrhythmia
+%
+% --------------------------------------------------------------------------------
+
+remap	arrhythmia/bradycardia|"Bradycardia"
+remap	arrhythmia/bradycardia|"Bradycardia|Bradycardia"
+remap	arrhythmia/tachycardia|"Tachycardia"
+remap	arrhythmia/tachycardia|"Tachycardia|Tachycardia"
+remap	arrhythmia/narrow_complex_tachycardia|"Narrow Complex Tachycardia"
+remap	arrhythmia/narrow_complex_tachycardia|"Narrow complex tachycardia|Narrow Complex Tachycardia"
+
+
+% --------------------------------------------------------------------------------
+%
+% Misc
+%
+% --------------------------------------------------------------------------------
+
+remap	notes|"Technician Notes"
