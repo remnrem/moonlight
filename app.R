@@ -46,8 +46,8 @@ pops.versions = c( "11-Jan-2023", "31-Dec-2022" )
 
 # canonical file
 
-canonical.sigs    <- "./canonical/signals.txt"
-canonical.annots  <- "./canonical/annots.txt"
+canonical.sigs    <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
+canonical.annots  <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/annots.txt"
 
 
 pal10 <- c(
