@@ -79,6 +79,7 @@ RUN cd /build \
 
 COPY app.R /srv/shiny-server/
 COPY pops /srv/shiny-server/pops
+COPY canonical /srv/shiny-server/canonical
 
 USER shiny
 

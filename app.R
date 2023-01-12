@@ -2,27 +2,26 @@
 # POPS models do not swap expected # of predictors.
 # canonical page
 
-
-#//    --------------------------------------------------------------------
-#//
-#//    This file is part of Luna.
-#//
-#//    LUNA is free software: you can redistribute it and/or modify
-#//    it under the terms of the GNU General Public License as published by
-#//    the Free Software Foundation, either version 3 of the License, or
-#//    (at your option) any later version.
-#//
-#//    Luna is distributed in the hope that it will be useful,
-#//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#//    GNU General Public License for more details.
-#//
-#//    You should have received a copy of the GNU General Public License
-#//    along with Luna. If not, see <http://www.gnu.org/licenses/>.
-#//
-#//    Please see LICENSE.txt for more details.
-#//
-#//    --------------------------------------------------------------------
+#  --------------------------------------------------------------------
+#
+#  This file is part of Luna.
+#
+#  LUNA is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Luna is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Luna. If not, see <http://www.gnu.org/licenses/>.
+#
+#  Please see LICENSE.txt for more details.
+#
+#  --------------------------------------------------------------------
 
 # source("app.R"); shinyApp(ui, server)
 
@@ -44,6 +43,12 @@ lmoonlight_mode()
 pops.path     = "./pops"
 pops.libs     = c( "s1" , "v1" )
 pops.versions = c( "11-Jan-2023", "31-Dec-2022" )
+
+# canonical file
+
+canonical.sigs    <- "./canonical/signals.txt"
+canonical.annots  <- "./canonical/annots.txt"
+
 
 pal10 <- c(
   rgb(255, 88, 46, max = 255),
@@ -139,6 +144,19 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
           hr(),
           DT::dataTableOutput( "table.header2" ) 
 	 ), 
+
+        tabPanel("Harmonize",
+          tabsetPanel( 
+            tabPanel("Channels", hr( col="white" ) , 
+                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
+					placeholder = "(Enter additional CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
+		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ) 		  
+	   ) , 
+           tabPanel("Annotations",
+	   )
+	   )
+        ),
 
         tabPanel("Segments",
           textOutput( "text.segments" ),
@@ -237,6 +255,7 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
 	  hr()
         ),
 
+
        tabPanel("Manips",
          tabsetPanel(
            tabPanel("Re-reference" , 
@@ -276,7 +295,7 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
        ) , 
 
 
-       tabPanel("Luna", hr( col="white" ) , 
+       tabPanel("Luna", textOutput( "text.luna.sigs" ), textOutput( "text.luna.annots" ),  
  		  fluidRow( column( 9 , textAreaInput("eval" , NULL , width = '100%' , height = '60px' , resize='none' ,
 		                        placeholder = "(Enter Luna commands here)" ) )  ,
 			    column( 1 , actionButton("go", "Execute") ) ) , 			    
@@ -323,6 +342,7 @@ observeEvent( input$files , {
  values$view <- NULL
  values$evalout <- NULL
  values$nz <- 1
+ values$canonical <- NULL
  values$LOFF <- values$LON <- "." 
  
 # other cleares
@@ -646,6 +666,16 @@ updateTextAreaInput(
 # ------------------------------------------------------------
 # Populate tabular output, depends on evalsel
 
+ output$text.luna.sigs <- renderText({
+     req( values$hasedf )
+     paste( "Channels:" , paste( values$opt[[ "chs" ]] , collapse="  " ) )
+  })
+
+ output$text.luna.annots <- renderText({
+     req( values$hasedf )
+     paste( "Annotations:" , paste( values$opt[[ "annots" ]] , collapse="  " ) )
+  })
+
  output$evaltab <- DT::renderDataTable({
    req( values$hasedf , input$evalsel , values$opt[[ "k" ]] )
    tok <- unlist( strsplit( input$evalsel , " : " ) ) 
@@ -678,13 +708,11 @@ updateTextAreaInput(
 
 output$text.header1a <- renderText({
     req( values$hasedf )
-    cat( "rendering header1a\n")  
     values$opt[[ "edfname" ]] 
 })
 
 output$text.header1b <- renderText({
     req( values$hasedf )    
-    cat( "rendering header1b\n")
 c( values$opt[[ "header1" ]]$EDF_TYPE, "with" , 
    values$opt[[ "header1" ]]$NS , "signals |" ,
    "start date" , values$opt[[ "header1" ]]$START_DATE ,
@@ -1012,9 +1040,7 @@ DT::datatable( m ,
  output$psd.plot <- renderPlot( {
     req( input$psd.ch )
     cmd <- paste( "PSD epoch-spectrum max=25 dB sig" , input$psd.ch , sep="=" )
-    cat( "eval PSD plot\n" )
     ret <- leval( cmd )
-    cat( "...done\n" ) 
     par(mar=c(0,0,0,0))
     lheatmap( ret$PSD$CH_E_F$E , ret$PSD$CH_E_F$F , ret$PSD$CH_E_F$PSD , win=0.05)
  })
@@ -2012,26 +2038,18 @@ output$plot.pops.features <- renderPlot({
 
 
  # ------------------------------------------------------------
- # Reload/refresh EDF
+ # Reload/refresh/reepoch an EDF
  #
 
  observeEvent( input$reset , {
+
    req( values$hasdata )
-
-   leval( "MASK clear" )
-   
+   leval( "MASK clear" )   
    lrefresh()
-
    init()
-
    update()
 
 } )
-
-
- # ------------------------------------------------------------
- # Reload/refresh EDF
- #
 
  observeEvent( input$reepoch , {
    req( values$hasdata )
@@ -2046,6 +2064,80 @@ output$plot.pops.features <- renderPlot({
   update()
 } )
 
+
+
+ # ------------------------------------------------------------
+ # Harmonization of channels & labels
+ #
+
+ observeEvent( input$mapchs , {
+    req( values$hasdata )
+
+    # save as tempfile
+    tfile <- tempfile()
+    write( input$canonical , file = tfile )
+
+    # run CANONICAL
+    ret <- leval( paste( "CANONICAL file=" , tfile , sep="" ) )
+
+    # details
+    values$canonical[[ "ch" ]] <- ret$CANONICAL$CH
+    values$canonical[[ "cs" ]] <- ret$CANONICAL$CS
+
+    # update tables
+    update()
+    
+    # clean up
+    on.exit( unlink( tfile ) , add = T ) 
+ } )
+
+
+# add NSRR defaults
+
+  observeEvent( input$addnsrr , {	
+        updateTextAreaInput(session, "canonical",
+     value = paste( scan( canonical.sigs , what = as.character() , sep = "\n" , blank.lines.skip = F ) ,
+                    collapse = "\n" ) )    
+ } )
+
+
+
+ output$csmappings <- DT::renderDataTable({
+   req( values$canonical )
+   df <- values$canonical[[ "cs" ]]
+   df$ID <- NULL
+   df <- df[ order( df$DEFINED , decreasing = T ) , ]
+   
+   DT::datatable( df,
+                   options = list(scrollY = '380px' ,
+                               scrollX = '100%' ,
+                               dom="tB" ,
+                               buttons = list( list(extend = "copy", text = "Copy") ) ,
+                               paging = F , ordering=F,
+                               info = FALSE ,
+                               searching = FALSE ,
+                               columnDefs = list(list(className = "dt-center", targets = "_all"))),
+                 rownames= FALSE )
+
+  })
+
+ output$chmappings <- DT::renderDataTable({
+   req( values$canonical )
+   df <- values$canonical[[ "ch" ]] 
+   df$ID <- NULL
+   df <- df[ order( df$USED , decreasing = T ) , ]
+   DT::datatable( df,
+                   options = list(scrollY = '380px' ,
+                               scrollX = '100%' ,
+                               dom="tB" ,
+                               buttons = list( list(extend = "copy", text = "Copy") ) ,
+                               paging = F , ordering=F,
+                               info = FALSE ,
+                               searching = FALSE ,
+                               columnDefs = list(list(className = "dt-center", targets = "_all"))),
+                 rownames= FALSE )
+
+  })
 
 
 
