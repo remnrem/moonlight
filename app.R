@@ -40,6 +40,7 @@ options(shiny.maxRequestSize = 3000 * 1024^2)
 # set error handler for lunaR
 lmoonlight_mode()
 
+# M1, M2
 pops.path     = "./pops"
 pops.libs     = c( "s1" , "v1" )
 pops.versions = c( "11-Jan-2023", "31-Dec-2022" )
@@ -48,7 +49,6 @@ pops.versions = c( "11-Jan-2023", "31-Dec-2022" )
 
 canonical.sigs    <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
 canonical.annots  <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/annots.txt"
-
 
 pal10 <- c(
   rgb(255, 88, 46, max = 255),
@@ -145,19 +145,6 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
           DT::dataTableOutput( "table.header2" ) 
 	 ), 
 
-        tabPanel("Harmonize",
-          tabsetPanel( 
-            tabPanel("Channels", hr( col="white" ) , 
-                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
-					placeholder = "(Enter additional CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
-                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
-		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ) 		  
-	   ) , 
-           tabPanel("Annotations",
-	   )
-	   )
-        ),
-
         tabPanel("Segments",
           textOutput( "text.segments" ),
 	  plotOutput( "plot.segments" , width='100%' , height='150px' ),
@@ -177,8 +164,19 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
 	   tabPanel("Times", DT::dataTableOutput( "table.hypno.times" , width='100%' ) ) ,
 	   tabPanel("Stages", DT::dataTableOutput( "table.hypno.stages"  ) ) ,
 	   tabPanel("Cycles",DT::dataTableOutput( "table.hypno.cycles"  ) ) ,
-	   tabPanel("Epochs",DT::dataTableOutput( "table.hypno.epochs" ) ) )
-          ),
+	   tabPanel("Epochs",DT::dataTableOutput( "table.hypno.epochs" ) ) ,
+	   tabPanel("Stage annotations",
+	       fluidRow(
+                column(2, selectInput("hypno.n1", label=h5("N1"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.n2", label=h5("N2"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.n3", label=h5("N3"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.r", label=h5("R"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.w", label=h5("W"), choices=list(),multiple=F,selectize=F ))),
+               fluidRow(
+	        column(2, selectInput("hypno.u", label=h5("?"), choices=list(),multiple=F,selectize=F )),
+		column(2, selectInput("hypno.l", label=h5("L"), choices=list(),multiple=F,selectize=F ))),
+                hr(), actionButton("hypno.assign", "Assign" ) )
+          )),
             
         tabPanel( "SOAP",
 	  br(),
@@ -288,14 +286,44 @@ ui <- fluidPage( #theme = shinytheme("yeti"),
                      column( 4 , textInput("transexp", label = h5("Expression") ) ),
                      column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ) 
 	   ),
-        tags$head(tags$style("#reref1{height: 270px; width: 175px; ") ) ,
-        tags$head(tags$style("#reref2{height: 270px; width: 175px; ") ) ,
-        tags$head(tags$style("#drop{height: 270px; width: 175px; ") ) , 
-        tags$head(tags$style("#resample{height: 270px; width: 175px; ") ) 
+        verbatimTextOutput( "manipout" , placeholder= T ) ,
+        tags$head(tags$style("#manipout{color:black; font-size:9px;
+                                        overflow-y:scroll; height: 150px; background: ghostwhite;}") ),
+        tags$head(tags$style("#reref1{height: 175px; width: 175px; ") ) ,
+        tags$head(tags$style("#reref2{height: 175px; width: 175px; ") ) ,
+        tags$head(tags$style("#drop{height: 175px; width: 175px; ") ) , 
+        tags$head(tags$style("#resample{height: 175px; width: 175px; ") ) 
        ) , 
 
+        tabPanel("Harmonize",
+          tabsetPanel( 
+            tabPanel("Channels", hr( col="white" ) , 
+                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
+					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
+		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ),
+                  hr( col="white" ), 
+                  verbatimTextOutput( "mapout" , placeholder= T ) ,
+                  tags$head(tags$style("#mapout{color:black; font-size:9px;
+                                        overflow-y:scroll; height: 200px; background: ghostwhite;}") )
+	   ) , 
+           tabPanel("Annotations",  hr( col="white" ) ,
+                  fluidRow( column( 9 , textAreaInput("remaps" , NULL , width = '100%' , height = '250px' , resize='none' ,
+                                        placeholder = "(Enter annotation remappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapanns", "Map") , actionButton( "addnsrr_anns" , "Insert NSRR defaults" ) ) ) ,
+                  DT::dataTableOutput( "annmappings" ) ,
+                  hr( col="white" ),
+                  verbatimTextOutput( "annmapout" , placeholder= T ) ,
+                  tags$head(tags$style("#annmapout{color:black; font-size:9px;
+                                          overflow-y:scroll; height: 200px; background: ghostwhite;}") )
+	   ))	   
+        ),
 
-       tabPanel("Luna", textOutput( "text.luna.sigs" ), textOutput( "text.luna.annots" ),  
+
+       tabPanel("Luna",
+                  fluidRow( column( 1 , textOutput( "label.luna.sigs" ) ) , column( 11, textOutput( "text.luna.sigs" ) ) ) ,
+		  fluidRow( column( 1 , textOutput( "label.luna.annots" ) ) , column( 11, textOutput( "text.luna.annots" ) ) ) ,
+		  hr( col="white") , 
  		  fluidRow( column( 9 , textAreaInput("eval" , NULL , width = '100%' , height = '60px' , resize='none' ,
 		                        placeholder = "(Enter Luna commands here)" ) )  ,
 			    column( 1 , actionButton("go", "Execute") ) ) , 			    
@@ -390,6 +418,9 @@ if ( values$hasedf) {
 
 # attach EDF
 ledf( values$opt[[ "edfpath" ]] )
+
+# read all EDF+ annotations as class-level
+lset( "edf-annot-class-all" , "T" )
 
 # and any annotations
 for (a in values$opt[[ "annotpaths" ]] )
@@ -572,6 +603,15 @@ isolate( {
         selected = 0
       )
 
+# hypno assignments
+
+    updateSelectInput( session, "hypno.n1",   choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "hypno.n2",   choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "hypno.n3",   choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "hypno.r",    choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "hypno.w",    choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "hypno.u",    choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+
 # manips
 
     updateSelectInput( session, "reref1",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
@@ -666,14 +706,17 @@ updateTextAreaInput(
 # ------------------------------------------------------------
 # Populate tabular output, depends on evalsel
 
+ output$label.luna.sigs <- renderText({ "Channels:" })
+ output$label.luna.annots <- renderText({ "Annots:" })
+
  output$text.luna.sigs <- renderText({
      req( values$hasedf )
-     paste( "Channels:" , paste( values$opt[[ "chs" ]] , collapse="  " ) )
+     paste( values$opt[[ "chs" ]] , collapse="  " )
   })
 
  output$text.luna.annots <- renderText({
      req( values$hasedf )
-     paste( "Annotations:" , paste( values$opt[[ "annots" ]] , collapse="  " ) )
+     paste( values$opt[[ "annots" ]] , collapse="  " )
   })
 
  output$evaltab <- DT::renderDataTable({
@@ -844,6 +887,32 @@ c( values$opt[[ "header1" ]]$EDF_TYPE, "with" ,
 	   times = values$opt[[ "init.epochs.aligned" ]]$START )
   })
 
+
+  observeEvent( input$hypno.assign , {
+    req( values$hasdata , input$hypno.n1, input$hypno.n2, input$hypno.n3, input$hypno.w, input$hypno.r )
+
+    # does not require that ? is set explicitly, but the others must be
+    
+    # set N1,N2... annotations based on selections here, and then run update.hypnogram
+
+    stgstr <- paste( "N1=" , input$hypno.n1 , " N2=" , input$hypno.n2 , " N3=", input$hypno.n3 , " R=" , input$hypno.r , " W=", input$hypno.w , sep="" )
+
+    if ( ! is.null( input$hypno.u ) ) stgstr <- c( stgstr , " ?=" , input$hypno.u , sep="" )
+    if ( ! is.null( input$hypno.l ) ) stgstr <- c( stgstr , " L=" , input$hypno.l , sep="" )
+    
+    # manually do an update hypnogram, but call HYPNO w/ force, which will force a call to annot_t::make_sleep_stage()
+    #  the normal one does not, so any changes here will be preserved until we come back here / reload
+
+    ret <- leval( paste( "HYPNO epoch lights-off=" , values$LOFF , " lights-on=" , values$LON , " force " , stgstr , sep="" ) )
+
+    values$opt[[ "hypno.stats" ]]  <- ret$HYPNO$BL
+    values$opt[[ "hypno.epochs" ]] <- ret$HYPNO$E
+    values$opt[[ "all.hypno.epochs" ]] <- ret$HYPNO$E
+    values$opt[[ "ss" ]]           <- ret$HYPNO$E[ , c("E","STAGE") ]
+    values$opt[[ "hypno.cycles" ]] <- ret$HYPNO$C
+    values$opt[[ "hypno.stages" ]] <- ret$HYPNO$SS
+
+  } )
 
   observeEvent(input$hypno_dblclick, {
       session$resetBrush("hypno_brush")
@@ -2077,8 +2146,8 @@ output$plot.pops.features <- renderPlot({
     tfile <- tempfile()
     write( input$canonical , file = tfile )
 
-    # run CANONICAL
-    ret <- leval( paste( "CANONICAL file=" , tfile , sep="" ) )
+    # run CANONICAL, w/ verbose output in console captured
+    values$canonical[[ "verb" ]] <- capture.output( ret <- leval( paste( "CANONICAL verbose file=" , tfile , sep="" ) ) ) 
 
     # details
     values$canonical[[ "ch" ]] <- ret$CANONICAL$CH
@@ -2121,6 +2190,12 @@ output$plot.pops.features <- renderPlot({
 
   })
 
+ output$mapout <- renderText({
+  req(  values$canonical )
+  paste0( values$canonical[[ "verb" ]] , sep="\n" )
+ })
+
+
  output$chmappings <- DT::renderDataTable({
    req( values$canonical )
    df <- values$canonical[[ "ch" ]] 
@@ -2139,6 +2214,66 @@ output$plot.pops.features <- renderPlot({
 
   })
 
+
+
+ # ------------------------------------------------------------
+ # Harmonization of annotations
+ #
+
+ observeEvent( input$mapanns , {
+    req( values$hasdata )
+
+    # save as tempfile
+    tfile <- tempfile()
+    write( input$remaps , file = tfile )
+
+    # run REMAP, w/ verbose output in console captured
+    values$canonical[[ "annverb" ]] <- capture.output( ret <- leval( paste( "REMAPfile=" , tfile , sep="" ) ) ) 
+    ret <- leval( "ALIASES" )
+    
+    # details
+    values$canonical[[ "anns" ]] <- ret$ALIASES$ANNOT
+
+    # update tables
+    update()
+    
+    # clean up
+    on.exit( unlink( tfile ) , add = T ) 
+ } )
+
+
+# add NSRR defaults
+
+  observeEvent( input$addnsrr_anns , {	
+        updateTextAreaInput(session, "remaps",
+     value = paste( scan( canonical.annots , what = as.character() , sep = "\n" , blank.lines.skip = F ) ,
+                    collapse = "\n" ) )    
+ } )
+
+
+
+ output$annmappings <- DT::renderDataTable({
+   req( values$canonical )
+   df <- values$canonical[[ "anns" ]]
+   df$ID <- NULL
+   
+   DT::datatable( df,
+                   options = list(scrollY = '380px' ,
+                               scrollX = '100%' ,
+                               dom="tB" ,
+                               buttons = list( list(extend = "copy", text = "Copy") ) ,
+                               paging = F , ordering=F,
+                               info = FALSE ,
+                               searching = FALSE ,
+                               columnDefs = list(list(className = "dt-center", targets = "_all"))),
+                 rownames= FALSE )
+
+  })
+
+ output$amapout <- renderText({
+  req(  values$canonical )
+  paste0( values$canonical[[ "annverb" ]] , sep="\n" )
+ })
 
 
  # ------------------------------------------------------------
