@@ -1,7 +1,4 @@
 
-# POPS models do not swap expected # of predictors.
-# canonical page
-
 #  --------------------------------------------------------------------
 #
 #  This file is part of Luna.
@@ -369,6 +366,7 @@ observeEvent( input$files , {
  values$pops <- NULL
  values$view <- NULL
  values$evalout <- NULL
+ values$manipout <- NULL
  values$nz <- 1
  values$canonical <- NULL
  values$LOFF <- values$LON <- "." 
@@ -659,7 +657,6 @@ isolate( {
 
 
 }
-
 
 
 
@@ -2014,24 +2011,23 @@ output$plot.pops.features <- renderPlot({
       values$view[[ "epochs" ]][ values$view[[ "epochs" ]] > values$opt[[ "ne" ]] ] <- values$opt[[ "ne" ]]
     })
 
+
     output$info2 <-
       renderText({
         req(values$hasdata )
 
         # zoom info to display?
-
         zoom_info <- NULL
 
-        if (!is.null(values$view[[ "zoom" ]])) {
-          brush <- input$zoom_brush
-          zoom_info <- paste0(". Zoomed in epoch range is: ",
-	                      floor(values$view[[ "zoom" ]][1] / 30), " to ",
-			      ceiling(values$view[[ "zoom"]][2] / 30))
-        }
+#        if ( ! is.null(values$view[[ "zoom" ]])) {
+#          brush <- input$zoom_brush
+#         zoom_info <- paste0(". Zoomed in epoch range is: ",
+#	                      floor(values$view[[ "zoom" ]][1] / 30), " to ",
+#			      ceiling(values$view[[ "zoom"]][2] / 30))
+#        }
 
         epochs <- values$view[[ "epochs" ]]
         if (is.null(epochs)) epochs <- c(1, 1)
-        hrs <- ((epochs[1] - 1) * 30) / 3600
 
         all_good <- TRUE
         max_epoch <- values$opt[[ "ne" ]]
@@ -2043,10 +2039,9 @@ output$plot.pops.features <- renderPlot({
         }
 
         if (all_good) {
-          paste0(
-            "Epoch ", floor(epochs[1]), " to ", ceiling(epochs[2]),
-            " (", (ceiling(epochs[2]) - floor(epochs[1]) + 1) * 0.5, " minutes)",
-            " ", signif(hrs, 2), " hours from start", zoom_info,
+	  str1 <- paste0( "Epoch ", floor(epochs[1]), " - ", ceiling(epochs[2]),
+                          " (", (ceiling(epochs[2]) - floor(epochs[1]) + 1) * 0.5, " mins)",
+            "\n", 
             ifelse(values$view[[ "bandpass" ]], paste( " (w/" ,
 	           values$view[[ "bpflt" ]][1] , "-" ,
 		   values$view[[ "bpflt" ]][2] , "Hz filter)"), " (unfiltered)")
@@ -2061,36 +2056,42 @@ output$plot.pops.features <- renderPlot({
  # ------------------------------------------------------------
  # Manip functions
 
+ output$manipout <- renderText({
+  req(  values$manipout )
+  paste0( values$manipout , sep="\n" )
+ })
+
+
  observeEvent( input$doreref , { 
    req( input$reref1 , input$reref2 )
    pris <- paste( input$reref1 , collapse="," )
    refs <- paste( input$reref2 , collapse="," )
-   leval( paste( "REFERENCE sig=" , pris , " ref=" , refs , sep="" ) )
+   values$manipout <- capture.output( leval( paste( "REFERENCE sig=" , pris , " ref=" , refs , sep="" ) ) )
    update()   
    } )
 
  observeEvent( input$doresample , {
   req( input$resample , input$resamplerate )
   pris <- paste( input$resample , collapse="," )
-  leval( paste( "RESAMPLE sig=" , pris , " sr=" , input$resamplerate , sep="" ) )
+  values$manipout <- capture.output( leval( paste( "RESAMPLE sig=" , pris , " sr=" , input$resamplerate , sep="" ) ) )
   update()
  } )
 
  observeEvent( input$dorename , {
   req( input$renameold , input$renamenew )
-  leval( paste( "RENAME sig=" , input$renameold , " new=" , input$renamenew , sep="" ) )
+  values$manipout <- capture.output( leval( paste( "RENAME sig=" , input$renameold , " new=" , input$renamenew , sep="" ) ) )
   update()
  } )
 
  observeEvent( input$dodrop , {
   req( input$drop )
-  leval( paste( "DROP sig=" , input$drop , sep="" ) )
+  values$manipout <- capture.output( leval( paste( "DROP sig=" , input$drop , sep="" ) ) )
   update()
  } )
 
  observeEvent( input$docopy , {
   req( input$copyold , input$copytag )
-  leval( paste( "COPY sig=" , input$copyold , " tag=" , input$copytag , sep="" ) ) 
+  values$manipout <- capture.output( leval( paste( "COPY sig=" , input$copyold , " tag=" , input$copytag , sep="" ) ) )
   update()
  } )
 
@@ -2098,8 +2099,7 @@ output$plot.pops.features <- renderPlot({
  observeEvent( input$dotrans , {
   req( input$transch , input$transexp )
   cmd <- paste( "TRANS sig=" , input$transch , " expr=\" " , input$transexp , "\"" , sep="" )
-  cat( "trans[" , cmd , "]\n" )
-  leval( cmd )
+  values$manipout <- capture.output( leval( cmd ) )
   update()
  } )
 
