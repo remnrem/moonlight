@@ -68,7 +68,7 @@ pal10 <- c(
 # ------------------------------------------------------------
 # Define UI 
 
-ui <- fluidPage( #theme = shinytheme("yeti"),
+shinyUI <- fluidPage( #theme = shinytheme("yeti"),
 
 # App title ----
 #  titlePanel( h3( "Moonlight/Luna" ) ),

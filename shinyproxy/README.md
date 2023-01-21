@@ -16,7 +16,7 @@ a container spins up and serves the application.
 # Installation
 
 ## 1) Java 8
-
+ShinyProxy is written using mature and robust Java technology and you will need a Java 8 runtime environment to run ShinyProxy
 #### Download and Install [OpenJDK like Zulu](https://www.azul.com/downloads/?package=jdk)
 * Select Java version 8 LTS
 ```
@@ -26,7 +26,10 @@ sudo apt install ./zulu8.68.0.19-ca-jdk8.0.362-linux_amd64.deb
 ## 2) Docker
 
 #### Download and Install [Docker for ubuntu](https://docs.docker.com/engine/install/ubuntu/)
-
+Once the installation is completed, To check whether the docker daemon is up and running, use
+```
+sudo systemctl status docker
+```
 ShinyProxy needs to connect to the docker daemon to spin up the containers for the Shiny apps.<br /> 
 By default ShinyProxy will do so on port 2375 of the docker host.<br /> In order to allow for connections on port 2375, 
 the startup options need to be edited.<br /> Edit `/lib/systemd/system/docker.service` and replace the relevant line with
@@ -40,10 +43,6 @@ sudo systemctl restart docker
 
 ## 3) ShinyProxy
 #### Download and Install [ShinyProxy](https://www.shinyproxy.io/downloads/)
-```ruby
- shinyproxy_2.6.1_amd64.deb
- ```
- To install shinyproxy run
  ```
  sudo apt install ./shinyproxy_2.6.1_amd64.deb
  ```
@@ -74,7 +73,6 @@ proxy:
     authentication: none
 
     docker:
-      internal-networking: false
       url: http://localhost:2375
       port-range-start: 20000
 
@@ -85,9 +83,13 @@ proxy:
       container-image: openanalytics/shinyproxy-template
  ```
  ## 6) Running ShinyProxy 
-ShinyProxy can be run using the following command
+Restart ShinyProxy daemon
 ```
-systemctl restart shinyproxy
+sudo systemctl restart shinyproxy
+```
+To see whether the service is up and running, one can use:
+```
+sudo systemctl status shinyproxy
 ```
 Less than 10 seconds later, you can point your browser to http://localhost:9191 and use your Shiny apps!<br />
 More advanced information on the usage and configuration of ShinyProxy is available on the [Configuration](https://www.shinyproxy.io/documentation/configuration/) page.

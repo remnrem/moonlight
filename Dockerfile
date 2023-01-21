@@ -75,14 +75,14 @@ RUN cd /build \
  && echo 'PKG_LIBS=include/libluna.a -L$(FFTW)/lib/ -L${LGBM_PATH} -lfftw3 -l_lightgbm' >> luna/src/Makevars \
  && LGBM=1 LGBM_PATH=/build/LightGBM/ R CMD INSTALL luna
  
-# copy app.R over and set up shiny
+# copy ui.R and server.R over and set up shiny
+RUN mkdir /root/moon
+COPY ui.R /root/moon
+COPY server.R /root/moon
+COPY pops /root/moon/pops
 
-COPY app.R /srv/shiny-server/
-COPY pops /srv/shiny-server/pops
-
-USER shiny
+COPY Rprofile.site /usr/local/lib/R/etc/
 
 EXPOSE 3838
 
-CMD ["/usr/bin/shiny-server"]
-
+CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]

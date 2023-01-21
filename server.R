@@ -27,7 +27,7 @@
 #
 # ------------------------------------------------------------
 
-server <- function(input, output, session ) {
+shinyServer <- function(input, output, session ) {
 
 # ------------------------------------------------------------
 # main store
