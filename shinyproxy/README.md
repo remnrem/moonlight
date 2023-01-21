@@ -40,15 +40,14 @@ sudo systemctl restart docker
 
 ## 3) ShinyProxy
 #### Download and Install [ShinyProxy](https://www.shinyproxy.io/downloads/)
-Open the link and download the following two files to your machine
 ```ruby
  shinyproxy_2.6.1_amd64.deb
- shinyproxy-2.6.1.jar
  ```
  To install shinyproxy run
  ```
  sudo apt install ./shinyproxy_2.6.1_amd64.deb
  ```
+
 ## 4) Pulling the demo image 
 In order to run ShinyProxy, you need Shiny apps. In ShinyProxy such Shiny apps are typically shipped in docker containers and the `openanalytics/shinyproxy-demo` is a demo image that has been made available to start playing with Shiny Proxy.
 
@@ -57,15 +56,18 @@ Once docker is installed on your system, you can pull (i.e. download) the docker
 sudo docker pull openanalytics/shinyproxy-demo
 ```
 ## 5) ShinyProxy configuration
-The ShinyProxy server configuration is mainly done in a file named `application.yml`. Specify properties in the YAML format.<br />
-This file should be in the same folder where you will launch the `shinyproxy-2.6.1.jar` file in the next step.<br />
-Copy the below contents and save it to `application.yml`
+ShinyProxy looks for a [configuration](https://www.shinyproxy.io/documentation/configuration/) file called `application.yml` in the `/etc/shinyproxy directory`. Let's create this file:
+```
+touch /etc/shinyproxy/application.yml
+```
+Copy the blow configs to `application.yml`
 ```
 proxy:
     title:
     landing-page: /
     heartbeat-rate: 15000
     heartbeat-timeout: 900000
+    port: 9191
     container-wait-time: 800000
     container-log-path: ./container-logs
   
@@ -85,7 +87,7 @@ proxy:
  ## 6) Running ShinyProxy 
 ShinyProxy can be run using the following command
 ```
-java -jar shinyproxy-2.6.1.jar --server.port=9191
+systemctl restart shinyproxy
 ```
 Less than 10 seconds later, you can point your browser to http://localhost:9191 and use your Shiny apps!<br />
 More advanced information on the usage and configuration of ShinyProxy is available on the [Configuration](https://www.shinyproxy.io/documentation/configuration/) page.
