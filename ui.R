@@ -1,0 +1,343 @@
+
+#  --------------------------------------------------------------------
+#
+#  This file is part of Luna.
+#
+#  LUNA is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Luna is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Luna. If not, see <http://www.gnu.org/licenses/>.
+#
+#  Please see LICENSE.txt for more details.
+#
+#  --------------------------------------------------------------------
+
+# source("ui.R"); source("server.R"); shinyApp(ui, server)
+
+library(shiny)
+library(luna)
+library(shinybusy)
+library(shinythemes)
+library(DT)
+
+# ------------------------------------------------------------
+# Options
+
+# Max EDF file size ( default = 200Mb ) here --> 3G
+options(shiny.maxRequestSize = 3000 * 1024^2)
+
+# set error handler for lunaR
+lmoonlight_mode()
+
+# M1, M2
+pops.path     = "./pops"
+pops.libs     = c( "s2" , "s2" )
+pops.versions = c( "20-Jan-2023", "20-Dec-2022" )
+
+# canonical file
+
+canonical.sigs    <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
+canonical.annots  <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/annots.txt"
+
+pal10 <- c(
+  rgb(255, 88, 46, max = 255),
+  rgb(1, 56, 168, max = 255),
+  rgb(177, 212, 18, max = 255),
+  rgb(255, 128, 237, max = 255),
+  rgb(1, 199, 86, max = 255),
+  rgb(171, 0, 120, max = 255),
+  rgb(85, 117, 0, max = 255),
+  rgb(251, 180, 179, max = 255),
+  rgb(95, 32, 0, max = 255),
+  rgb(164, 209, 176, max = 255)
+)
+
+
+# ------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------
+# Define UI 
+
+ui <- fluidPage( #theme = shinytheme("yeti"),
+
+# App title ----
+#  titlePanel( h3( "Moonlight/Luna" ) ),
+   
+   add_busy_spinner(spin = "fading-circle") , 
+
+# Sidebar layout with input and output definitions ----
+  sidebarLayout(
+
+    # Sidebar panel for inputs ----
+    sidebarPanel( width = 2 , 
+
+      # File input
+      fileInput( "files" ,
+      		 "Moonlight/Luna", 
+                 multiple = T ,
+		 accept = c( ".edf", ".edfz", ".gz", ".idx" , ".xml" , ".annot" , ".eannot" ) ),
+
+      textOutput( "text.header1a" ),
+
+      # Select channels
+      selectInput( "channels",
+      		   label = h5("Channels"), 
+    		   choices = list(),
+		   multiple=T,
+		   selectize=T ),
+
+      # Select annotations
+      selectInput( "annots",
+      		   label = h5("Annotations"), 
+    		   choices = list(),
+		   multiple=T,
+		   selectize=T ),
+
+      selectInput( "psd.ch" , 
+                    label = h5("Spectrogram"),
+                    choices = list(), multiple=F, selectize=F ),                    
+
+      selectInput("disp.ann",
+                  h5("Listed annotations"), list(),
+		  multiple = TRUE, selectize = TRUE),
+
+      selectInput("sel.inst", h5("Instances"), list(),
+                  multiple = TRUE, selectize = FALSE),
+
+      fluidRow( column(6,actionButton("reepoch", "Re-epoch") ),
+                column(6,actionButton("reset", "Refresh") ) )
+
+
+    ),
+
+
+    #
+    # Main panel for displaying outputs ----
+    #
+
+    mainPanel( width=10, 
+     br(),
+     plotOutput( "psd.plot" , width = "100%", height = "80px"),
+     plotOutput( "hypnogram" , width = "100%", height = "40px",
+                  dblclick = "hypno_dblclick",
+                  brush = brushOpts(id = "hypno_brush", direction = "x", resetOnNew = F)) ,
+     plotOutput( "mask.plot" , width = "100%", height = "15px" ) ,
+     hr(style = "border-top: 1px solid #000000;"),
+
+     tabsetPanel(
+
+        tabPanel("Header",
+	  textOutput( "text.header1b" ) ,
+          hr(),
+          DT::dataTableOutput( "table.header2" ) 
+	 ), 
+
+        tabPanel("Segments",
+          textOutput( "text.segments" ),
+	  plotOutput( "plot.segments" , width='100%' , height='150px' ),
+          DT::dataTableOutput( "table.segments" )
+          ),
+
+        tabPanel("Epochs",
+           hr( col="white" ),
+	   fluidRow( column( 4 , textOutput( "basic.ecount" ) , DT::dataTableOutput("epoch.table1") ) ,
+                     column( 4 , textOutput( "aligned.ecount" ) , DT::dataTableOutput("epoch.table2") ) ,
+		     column( 4 , textOutput( "selected.ecount" ) , DT::dataTableOutput("epoch.table3") ) )
+	),
+	
+        tabPanel("Hypnogram",
+          tabsetPanel(
+           tabPanel("Summaries", DT::dataTableOutput( "table.hypno" , width='100%' ) ) ,
+	   tabPanel("Times", DT::dataTableOutput( "table.hypno.times" , width='100%' ) ) ,
+	   tabPanel("Stages", DT::dataTableOutput( "table.hypno.stages"  ) ) ,
+	   tabPanel("Cycles",DT::dataTableOutput( "table.hypno.cycles"  ) ) ,
+	   tabPanel("Epochs",DT::dataTableOutput( "table.hypno.epochs" ) ) ,
+	   tabPanel("Stage annotations",
+	       fluidRow(
+                column(2, selectInput("hypno.n1", label=h5("N1"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.n2", label=h5("N2"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.n3", label=h5("N3"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.r", label=h5("R"), choices=list(),multiple=F,selectize=F )),
+                column(2, selectInput("hypno.w", label=h5("W"), choices=list(),multiple=F,selectize=F ))),
+               fluidRow(
+	        column(2, selectInput("hypno.u", label=h5("?"), choices=list(),multiple=F,selectize=F )),
+		column(2, selectInput("hypno.l", label=h5("L"), choices=list(),multiple=F,selectize=F ))),
+                hr(), actionButton("hypno.assign", "Assign" ) )
+          )),
+            
+        tabPanel( "SOAP",
+	  br(),
+	  fluidRow( column(3,selectInput( "soap.ch" , label = h5("Channel"), choices = list(), multiple=F,selectize=F ) ),
+                    column(1,hr(),actionButton("soap.run", "Run SOAP" ) ) ),
+          plotOutput( "plot.soap" , width="100%" , height = "125px"  ), 
+	  fluidRow( column(6, DT::dataTableOutput( "table.soap" , width="95%" ) ) ,
+                    column(6, DT::dataTableOutput( "table.soap.stages" , width="95%" ) ) )
+           ) ,
+
+
+         tabPanel( "POPS",
+          fluidRow(
+           column( 9 ,
+	     tabsetPanel( id = "popstabs",
+             tabPanel( "M1" ,
+	       fluidRow(
+	        column(4, selectInput("pops.m1.eeg1", label=h5("EEG (C4-M1)"), choices=list(),multiple=F,selectize=F ) ) ) ) ,
+             tabPanel( "M2" ,
+	       fluidRow(
+	        column(4, selectInput("pops.m2.eeg1", label=h5("EEG1 (C3-M2)"), choices=list(),multiple=F,selectize=F )),
+	        column(4, selectInput("pops.m2.eeg2", label=h5("EEG2 (C4-M1)"), choices=list(),multiple=F,selectize=F )))
+                 )
+                )) , 
+          column(3, hr(), actionButton("pops.run", "Run POPS" ) , checkboxInput("popsshap", label = "SHAP", value = F) ,
+	                  checkboxInput("pops.filter", label = "Pre-filter", value = F) ) 
+	  ) , 
+		    
+          tabsetPanel( 
+  	   tabPanel( "Summaries" , plotOutput( "plot.pops" , width="100%" , height = "150px"  ),
+                                   fluidRow( column(6, DT::dataTableOutput( "table.pops" ) ) ,
+				             column(6, DT::dataTableOutput( "table.pops.stages" ) ) ) ) ,
+	   tabPanel( "Epochs"    , DT::dataTableOutput( "table.pops.epochs" ) ) , 
+
+           tabPanel( "Features"  , fluidRow( column(3, selectInput("sel.pops.features2", h5("Features"), list(),multiple = T, selectize = F ) ),
+                                             column(8, hr(col="white"),plotOutput( "plot.pops.features" , width="100%" , height = "150px" ) ) ) , 
+                                   DT::dataTableOutput( "sel.pops.features" ) ,
+           tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;" ) ) ) )
+         ),
+
+
+        tabPanel("Annots",
+          plotOutput("annot.view", width = "100%", height = "175px"),
+          br(),
+         tabsetPanel(
+	   tabPanel("Summary", dataTableOutput("annot.summary")) ,
+	   tabPanel("Instances", dataTableOutput("annot.table")))
+          ),
+
+         tabPanel("Signals",
+          fluidRow(
+            column(width = 1, offset = 0, actionButton("button_epoch_prv", " < Prev", width = "100%")),
+            column(width = 1, actionButton("button_epoch_nxt", "Next > ", width = "100%")),
+            column(width = 1,  actionButton("winin" , "In" , width='100%')),
+	    column(width = 1,  actionButton("winex" , "Out" , width='100%')),
+	    column(width = 1, offset = 0, actionButton("entire.record", "All", width = "100%")),
+	    column(width = 1, offset = 0, actionButton("bandpass", "Filter", width = "100%")),
+            column(width = 3, offset = 0, sliderInput("flt.freq", NULL, width = "100%",
+       	                                  min = 0, max = 100, step = 0.25, value = c(0.3, 35)) ),
+            column(width = 3, textOutput("info2") )
+          ),
+         plotOutput("signal.master",
+                     width = "100%", height = "30px", click = "master_click", dblclick = "master_dblclick",
+                     brush = brushOpts(id = "master_brush", direction = "x", resetOnNew = F)
+          ),
+          plotOutput("signal.master2", width = "100%", height = "10px"),
+          br(),
+          plotOutput("signal.view",
+                     width = "100%", height = "50vh", dblclick = "zoom_dblclick",
+                     brush = brushOpts(id = "zoom_brush", direction = "x", resetOnNew = F)
+          ),
+	  hr()
+        ),
+
+
+       tabPanel("Manips",
+         tabsetPanel(
+           tabPanel("Re-reference" , 
+	            fluidRow(
+		     column( 4 , selectInput( "reref1" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+		     column( 4 , selectInput( "reref2" , label = h5("Reference(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+		     column( 4 , hr(col="white"), actionButton("doreref", "Re-reference" ) ) ) ) ,
+           tabPanel("Resample" ,
+                    fluidRow(
+                     column( 4 , selectInput( "resample" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+                     column( 4 , numericInput("resamplerate", label = h5("Sample rate (Hz)"), min = 10 , max = 256 , value = 128 ) ) ,
+                     column( 4 , hr(col="white"), actionButton("doresample", "Resample" ) ) ) ) ,
+	   tabPanel("Rename" ,
+	            fluidRow(
+                     column( 4 , selectInput( "renameold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("renamenew", label = h5("New label") ) ) ,
+                     column( 4 , hr(col="white"), actionButton("dorename", "Rename channels" ) ) ) ) ,
+           tabPanel("Drop" ,
+                    fluidRow(
+                     column( 4 , selectInput( "drop" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+                     column( 4 , hr(col="white"), actionButton("dodrop", "Drop channels" ) ) ) ) ,
+           tabPanel("Copy" ,
+	   	    fluidRow(
+                     column( 4 , selectInput( "copyold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("copytag", label = h5("New tag") ) ),
+                     column( 4 , hr(col="white"), actionButton("docopy", "Copy channel" ) ) ) ) ,
+	   tabPanel("Transform" ,
+	            fluidRow(
+                     column( 4 , selectInput( "transch" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
+                     column( 4 , textInput("transexp", label = h5("Expression") ) ),
+                     column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ) 
+	   ),
+        verbatimTextOutput( "manipout" , placeholder= T ) ,
+        tags$head(tags$style("#manipout{color:black; font-size:9px;
+                                        overflow-y:scroll; height: 150px; background: ghostwhite;}") ),
+        tags$head(tags$style("#reref1{height: 175px; width: 175px; ") ) ,
+        tags$head(tags$style("#reref2{height: 175px; width: 175px; ") ) ,
+        tags$head(tags$style("#drop{height: 175px; width: 175px; ") ) , 
+        tags$head(tags$style("#resample{height: 175px; width: 175px; ") ) 
+       ) , 
+
+        tabPanel("Harmonize",
+          tabsetPanel( 
+            tabPanel("Channels", hr( col="white" ) , 
+                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
+					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
+		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ),
+                  hr( col="white" ), 
+                  verbatimTextOutput( "mapout" , placeholder= T ) ,
+                  tags$head(tags$style("#mapout{color:black; font-size:9px;
+                                        overflow-y:scroll; height: 200px; background: ghostwhite;}") )
+	   ) , 
+           tabPanel("Annotations",  hr( col="white" ) ,
+                  fluidRow( column( 9 , textAreaInput("remaps" , NULL , width = '100%' , height = '250px' , resize='none' ,
+                                        placeholder = "(Enter annotation remappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapanns", "Map") , actionButton( "addnsrr_anns" , "Insert NSRR defaults" ) ) ) ,
+                  DT::dataTableOutput( "annmappings" ) ,
+                  hr( col="white" ),
+                  verbatimTextOutput( "annmapout" , placeholder= T ) ,
+                  tags$head(tags$style("#annmapout{color:black; font-size:9px;
+                                          overflow-y:scroll; height: 200px; background: ghostwhite;}") )
+	   ))	   
+        ),
+
+
+       tabPanel("Luna",
+           tabsetPanel(
+            tabPanel("Commands", hr( col="white" ) ,
+                  fluidRow( column( 1 , textOutput( "label.luna.sigs" ) ) , column( 11, textOutput( "text.luna.sigs" ) ) ) ,
+		  fluidRow( column( 1 , textOutput( "label.luna.annots" ) ) , column( 11, textOutput( "text.luna.annots" ) ) ) ,
+		  hr( col="white") , 
+ 		  fluidRow( column( 9 , textAreaInput("eval" , NULL , width = '100%' , height = '60px' , resize='none' ,
+		                        placeholder = "(Enter Luna commands here)" ) )  ,
+			    column( 1 , actionButton("go", "Execute") ) ) , 			    
+	           fluidRow( column( 9 , verbatimTextOutput( "evalout" , placeholder= T ) ),    
+		   	     column( 3 , selectInput( "evalsel" , label = h5("Outputs"),choices = list(),multiple=F,selectize=F ))),
+		  tags$head(tags$style("#evalout{color:black; font-size:9px; 
+                                        overflow-y:scroll; height: 150px; background: ghostwhite;}")),    
+		  DT::dataTableOutput( "evaltab" , width='100%' ) ) ,		  
+       tabPanel("Plots",
+            hr( col="white" ) , 
+	    fluidRow( column( 4 , selectInput( "plotT" , label = h5("Tables"), choices = list(), multiple=F, selectize=F ) ) ,
+	              column( 2 , selectInput( "plotX" , label = h5("X-axis"), choices = list(), multiple=F, selectize=F ) ) ,  
+                      column( 2 , selectInput( "plotY" , label = h5("Y-axis"), choices = list(), multiple=F, selectize=F ) ) ,
+		      column( 2 , selectInput( "plotZ" , label = h5("Stratifier"), choices = list(), multiple=T, selectize=F ) ) ) ,
+		      uiOutput("ui_plotter") ) ) )
+    )
+  )
+ )
+)
+
