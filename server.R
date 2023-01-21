@@ -29,6 +29,29 @@
 
 server <- function(input, output, session ) {
 
+
+# ------------------------------------------------------------
+# moonlock to prevent new libraries from starting within the
+# same R process
+
+cat("\n\n\n\n\n\n\n -------------- STARTING NEW SERVER INSTANCE -------------------- \n\n\n\n" )
+
+#  generate a random string to uniquely identify this session
+moonlock <- paste0( sample( LETTERS , 20 ) , collapse=""  ) 
+
+cat( "setting moonlock" , moonlock , "\n" )
+
+# test whether lunaR has already been assigned a value
+# if so, give an error
+if ( ! lmoonlock( moonlock ) )
+{
+  showModal(modalDialog(
+     title = "Please do not refresh your browser or open Moonlight in new tabs", 
+     "To refresh, use the lower left 'Refresh' button. If this is a new browser tab, please close it. Running multiple Moonlight apps in the same browser is not supported and may corrupt data" 
+    ))
+}
+
+
 # ------------------------------------------------------------
 # main store
 
@@ -93,7 +116,9 @@ cat( " has annotations?" , values$hasannots , "\n" )
 if ( values$hasedf) {
 
 # attach EDF
+cat("about to LOAD\n")
 ledf( values$opt[[ "edfpath" ]] )
+cat("about to LOAD - DONE\n")
 
 # read all EDF+ annotations as class-level
 lset( "edf-annot-class-all" , "T" )
@@ -297,6 +322,7 @@ isolate( {
     updateSelectInput( session, "transch",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
     updateSelectInput( session, "copyold",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )    
     updateSelectInput( session, "renameold", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+    updateSelectInput( session, "filter",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
 
 # others
 
@@ -1059,7 +1085,9 @@ observeEvent( input$pops.run , {
     if ( input$pops.filter )
     {
       cat( "BP filtering" , cen , "\n" )
-      leval( paste( "FILTER sig=" , cen , " bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
+      leval( paste( "COPY sig=" , cen , " tag=FLT" , sep="" ) )
+      cen <- paste( cen, "FLT" , sep="_" )
+      leval( paste( "FILTER sig=" , cen , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
     }
 
     # need to make normalized version too? check if CEN_NORM already exists; if not, make  
@@ -1850,7 +1878,15 @@ output$plot.pops.features <- renderPlot({
   update()
  } )
 
- observeEvent( input$dorename , {
+ observeEvent( input$dofilter , {
+  req( input$filter )
+  pris <- paste( input$filter , collapse="," )
+  cmd <-  paste( "FILTER fft sig=" , pris , " bandpass=" , input$flwr , "," , input$fupr, " tw=" , input$ftw, " ripple=" , input$fripple, sep="" )
+  values$manipout <- capture.output( leval( cmd ) ) 
+  update()
+ } )
+
+observeEvent( input$dorename , {
   req( input$renameold , input$renamenew )
   values$manipout <- capture.output( leval( paste( "RENAME sig=" , input$renameold , " new=" , input$renamenew , sep="" ) ) )
   update()

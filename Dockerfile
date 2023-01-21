@@ -77,7 +77,7 @@ RUN cd /build \
  
 # copy app.R over and set up shiny
 
-COPY app.R /srv/shiny-server/
+COPY ui.R server.R /srv/shiny-server/
 COPY pops /srv/shiny-server/pops
 
 USER shiny
