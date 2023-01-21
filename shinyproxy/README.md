@@ -60,7 +60,7 @@ ShinyProxy looks for a [configuration](https://www.shinyproxy.io/documentation/c
 ```
 touch /etc/shinyproxy/application.yml
 ```
-Copy the blow configs to `application.yml`
+Copy the below configs to `application.yml`
 ```
 proxy:
     title:
