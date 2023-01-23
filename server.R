@@ -58,6 +58,8 @@ pal10 <- c(
   rgb(164, 209, 176, max = 255)
 )
 
+
+
 # ------------------------------------------------------------
 #
 # Implementation
@@ -95,100 +97,101 @@ if ( ! lmoonlock( moonlock ) )
 
 values <- reactiveValues( opt = list() )
 
-observeEvent( input$files , {
+
+
+# ------------------------------------------------------------
+# initiate w/ dummy data
+
+
+observeEvent(input$load.default, {
+values$file.details <- list( edf.name = "learn-nsrr02.edf" , edf.path = "data/learn-nsrr02.edf" ,  annot.names = "learn-nsrr02.xml" , annot.paths = "data/learn-nsrr02.xml" )
+})
+
+
+load.data <- observeEvent( values$file.details , {
+
+# switch to header
+
+  updateTabsetPanel(session, "maintabs", selected = "Header" )
+
+  edf.name <- values$file.details[[ "edf.name" ]]
+  edf.path <- values$file.details[[ "edf.path" ]]
+  annot.names <- values$file.details[[ "annot.names" ]]
+  annot.paths <- values$file.details[[ "annot.paths" ]]
+  
+  try( ldrop() )
+  
+  # clear all
+   values$opt  <- NULL
+   values$soap <- NULL
+   values$pops <- NULL
+   values$view <- NULL
+   values$evalout <- NULL
+   values$manipout <- NULL
+   values$nz <- 1
+   values$canonical <- NULL
+   values$LOFF <- values$LON <- "." 
  
-# clear all
- values$opt  <- NULL
- values$soap <- NULL
- values$pops <- NULL
- values$view <- NULL
- values$evalout <- NULL
- values$manipout <- NULL
- values$nz <- 1
- values$canonical <- NULL
- values$LOFF <- values$LON <- "." 
- 
-# other clearers
-    updateSelectInput(
-       session,
-       "evalsel",
-       choices = "" , 
-       label = "" , 
-       selected = 0
-      )
+ # other things to clear
+   updateSelectInput( session, "evalsel", choices = "" , label = "" , selected = 0 )
+   updateSelectInput( session, "plotT",   choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "channels", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "annots", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "disp.ann", choices = "" , label = NULL , selected = 0 )
 
-    updateSelectInput(
-       session,
-       "plotT",
-       choices = "" , 
-       label = NULL , 
-       selected = 0
-      )
+ # hypno assignments
+      updateSelectInput(session, "hypno.n1", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput(session, "hypno.n2", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput(session, "hypno.n3", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput(session, "hypno.r", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput(session, "hypno.w", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput(session, "hypno.u", choices = "" , label = NULL , selected = 0 )
 
- 
+      # manips
 
+      updateSelectInput( session, "reref1",   choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "reref2",   choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "resample", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "drop",      choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "transch",   choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "copyold",   choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "renameold", choices = "" , label = NULL , selected = 0 )
+      updateSelectInput( session, "filter",   choices = "" , label = NULL , selected = 0 )
+      clear_sel_inst()
+      updateSelectInput( session, "psd.ch", choices = "" , label = NULL , selected = 0 ) 
+      updateSelectInput( session, "soap.ch", choices = "" , label = NULL , selected = 0 )
 
-    # clear all
-    values$opt <- NULL
-    values$soap <- NULL
-    values$pops <- NULL
-    values$view <- NULL
-    values$evalout <- NULL
-    values$manipout <- NULL
-    values$nz <- 1
-    values$canonical <- NULL
-    values$LOFF <- values$LON <- "."
+      updateSelectInput(session, "pops.m1.eeg1", choices = "" , label = NULL , selected = 0)
+      updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
+      updateSelectInput(session, "pops.m2.eeg2", choices = "" , label = NULL , selected = 0)
 
-    # other cleares
-    updateSelectInput(
-      session,
-      "evalsel",
-      choices = "",
-      label = "",
-      selected = 0
-    )
-
-    updateSelectInput(
-      session,
-      "plotT",
-      choices = "",
-      label = NULL,
-      selected = 0
-    )
-
-    # EDFs (pick first if >1)
-    idx <- grep(".edf", ignore.case = T, input$files$name)
-    values$hasedf <- length(idx) >= 1
-    if (values$hasedf) {
-      values$opt[["edfname"]] <- input$files$name[idx[1]]
-      values$opt[["edfpath"]] <- input$files$datapath[idx[1]]
+  # now announce that we have new data
+   values$hasedf <- ! is.null( edf.name )
+   values$hasannots <- ! is.null( annot.names )
+   values$hasdata <- values$hasedf | values$hasannots
+   
+   if ( values$hasedf ) {
+      values$opt[["edfname"]] <- edf.name
+      values$opt[["edfpath"]] <- edf.path
     }
 
-    # annotations
-    idx <- c(
-      grep(".xml", ignore.case = T, input$files$name),
-      grep(".annot", ignore.case = T, input$files$name),
-      grep(".eannot", ignore.case = T, input$files$name)
-    )
-    values$hasannots <- length(idx) >= 1
-    if (values$hasannots) {
-      values$opt[["annotnames"]] <- input$files$name[idx]
-      values$opt[["annotpaths"]] <- input$files$datapath[idx]
+   if (values$hasannots) {
+      values$opt[["annotnames"]] <- annot.names
+      values$opt[["annotpaths"]] <- annot.paths
     }
-    values$hasdata <- values$hasedf | values$hasannots
+    
+   cat(" has data?", values$hasdata, "\n")
+   cat(" has edf?", values$hasedf, "\n")
+   cat(" has annotations?", values$hasannots, "\n")
 
-    cat(" has data?", values$hasdata, "\n")
-    cat(" has edf?", values$hasedf, "\n")
-    cat(" has annotations?", values$hasannots, "\n")
-
-    # process EDF
-    if (values$hasedf) {
+   # process EDF
+   if (values$hasedf) {
 
       # attach EDF
-      ledf(values$opt[["edfpath"]])
+      ledf( values$opt[["edfpath"]] )
 
       # read all EDF+ annotations as class-level
-      lset("edf-annot-class-all", "T")
+      lset( "edf-annot-class-all" , "T")
 
       # and any annotations
       for (a in values$opt[["annotpaths"]]) {
@@ -202,7 +205,47 @@ observeEvent( input$files , {
       update()
 
     }
-  })
+
+  
+
+} , priority = 99 )
+
+
+
+observeEvent( input$files , {
+
+  cat( "GETTING FILES\n")
+  values$file.details <- NULL
+
+  edf.name <- edf.path <- NULL
+  annot.names <- annot.paths <- NULL
+
+  # single EDF
+
+  idx <- grep(".edf", ignore.case = T, input$files$name)
+  if ( length(idx) >= 1 ) {
+    edf.name <- input$files$name[idx[1]]
+    edf.path <- input$files$datapath[idx[1]]
+  }
+
+  # 1 or more annotation files
+  idx <- c(
+     grep(".xml", ignore.case = T, input$files$name),
+     grep(".annot", ignore.case = T, input$files$name),
+     grep(".eannot", ignore.case = T, input$files$name) )
+
+  if ( length(idx) >= 1 ) {
+    annot.names <- input$files$name[idx]
+    annot.paths <- input$files$datapath[idx]
+  }
+
+  # trigger load data
+  cat( "setting\n" )
+  values$file.details <- list( edf.name = edf.name , edf.path = edf.path ,  annot.names = annot.names  , annot.paths = annot.paths )
+  cat( "setting CHANGED\n" )
+})
+
+
 
 
   # ------------------------------------------------------------
@@ -210,6 +253,7 @@ observeEvent( input$files , {
   #
 
   init <- function() {
+
     # epoch recording & SEGMENTS
     cat("init raw EPOCHs and SEGMENTS\n")
     ret <- leval("EPOCH verbose & SEGMENTS")
@@ -251,6 +295,7 @@ observeEvent( input$files , {
     cat(" # epochs (raw)", values$opt[["ne"]], "\n")
     cat(" # epochs (stage-aligned)", values$opt[["ne.aligned"]], "\n")
     cat(" has-staging?", values$hasstaging, "\n")
+
   }
 
 
@@ -267,6 +312,7 @@ observeEvent( input$files , {
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
   }
+
 
   # ------------------------------------------------------------
   # update channels/annots, etc
@@ -338,30 +384,11 @@ observeEvent( input$files , {
       values$opt[["annots.summ"]] <- ret$ANNOTS$ANNOT[ret$ANNOTS$ANNOT$ANNOT != "SleepStage", ]
       values$opt[["annots.inst"]] <- ret$ANNOTS$ANNOT_INST_T1_T2[ret$ANNOTS$ANNOT_INST_T1_T2$ANNOT != "SleepStage", ]
 
-      # Update channel lists
-      updateSelectInput(
-        session,
-        "channels",
-        choices = values$opt[["chs"]],
-        label = paste(length(values$opt[["chs"]]), "channels"),
-        selected = 0
-      )
+      # Update channel & annot lists
 
-      updateSelectInput(
-        session,
-        "annots",
-        choices = values$opt[["annots"]],
-        label = paste(length(values$opt[["annots"]]), "annotations"),
-        selected = 0
-      )
-
-      updateSelectInput(
-        session,
-        "disp.ann",
-        choices = values$opt[["annots"]],
-        label = paste(length(values$opt[["annots"]]), "listed annotations"),
-        selected = 0
-      )
+      updateSelectInput( session, "channels", choices = values$opt[["chs"]], label = paste(length(values$opt[["chs"]]), "channels"), selected = 0 )
+      updateSelectInput( session, "annots", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "annotations"), selected = 0 )
+      updateSelectInput( session, "disp.ann", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "listed annotations"), selected = 0 )
 
       # hypno assignments
 
@@ -391,19 +418,8 @@ observeEvent( input$files , {
       t50 <- values$opt[["type"]][values$opt[["sr"]] >= 50]
       first.eeg <- which(t50 == "EEG")[1]
 
-      updateSelectInput(
-        session,
-        "psd.ch",
-        choices = s50,
-        selected = ifelse(is.na(first.eeg), 0, s50[first.eeg])
-      )
-
-      updateSelectInput(
-        session,
-        "soap.ch",
-        choices = s50,
-        selected = 0
-      )
+      updateSelectInput( session, "psd.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "soap.ch", choices = s50, label = NULL , selected = 0 )
 
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
@@ -898,10 +914,14 @@ observeEvent( input$files , {
 
   output$psd.plot <- renderPlot({
     req(input$psd.ch)
-    cmd <- paste("PSD epoch-spectrum max=25 dB sig", input$psd.ch, sep = "=")
-    ret <- leval(cmd)
-    par(mar = c(0, 0, 0, 0))
-    lheatmap(ret$PSD$CH_E_F$E, ret$PSD$CH_E_F$F, ret$PSD$CH_E_F$PSD, win = 0.05)
+    isolate({
+     cmd <- paste("PSD epoch-spectrum max=25 dB sig", input$psd.ch, sep = "=")
+     ret <- leval(cmd)
+     par(mar = c(0, 0, 0, 0))
+     ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
+     df <- merge( ret$PSD$CH_E_F , ttable , by="E" , all.x = T ) 
+     lpointmap(df$START, df$F, df$PSD, xlim=c(0,max(df$START)), xs=30, ys=0.25, win = 0.05)
+    })
   })
 
   # ------------------------------------------------------------
@@ -910,18 +930,24 @@ observeEvent( input$files , {
 
   output$mask.plot <- renderPlot({
     req(values$hasedf)
-    inc <- 1:values$opt[["ne"]] %in% values$opt[["included"]]
-    unmsk <- 1:values$opt[["ne"]] %in% values$opt[["unmasked"]]
-    col <- "white"
+    df <- values$opt[["init.epochs"]][ , c("E","START") ]
+    inc <- df$E %in% values$opt[["included"]]
+    unmsk <- df$E %in% values$opt[["unmasked"]]
+    col <- rep( "white", dim(df)[1] )
     col[inc] <- "ivory3"
     col[unmsk] <- "orange2"
+    mx <- max(df$START)
     par(mar = c(0, 0, 0, 0))
-    plot(1:values$opt[["ne"]],
-      rep(1, values$opt[["ne"]]),
-      pch = "|",
+    plot( df$START, 
+      rep(2, dim(df)[1] ),
+      pch = "|", ylim=c(0,2.5), 
       xaxt = "n", yaxt = "n", xaxs = "i",
-      col = col
+      col = col , xlim = c(0,mx)
     )
+    tps4 <- seq(0,mx,3600/4)
+    tps1 <- seq(0,mx,3600)    
+    points( tps4 , rep(0.5,length(tps4)) , pch="|" , col = "blue", cex=0.4)
+    points( tps1 , rep(0.5,length(tps1)) , pch="|" , col = "black" , cex=0.8)
   })
 
 
@@ -1524,7 +1550,21 @@ observeEvent( input$files , {
 
   output$signal.view <- renderPlot(
     {
-      req(values$hasdata, c(input$channels, input$annots))
+      req( c(input$channels, input$annots) )
+      req( length( input$channels ) != 0 || lenth(  input$annots ) != 0 )
+
+
+      # as order of updates if off (urgh... need to figure out a fix)
+      # here just make sure we actually have all required channels
+      edf.chs <- lchs()
+      edf.annots <- lannots()
+      chk.chs <- length( input$channels ) == 0 || all( input$channels %in% edf.chs )
+      chk.annots <- length( input$annots ) == 0 || all( input$annots %in% edf.annots )
+      if ( ! chk.chs ) cat( "could not find all CHS... quitting\n"  )
+      if ( ! chk.annots ) cat( "could not find all ANNOTS... quitting\n" )
+      req( chk.chs )
+      req( chk.annots )
+      
 
       # all epochs
       dfe <- values$opt[["init.epochs"]][, c("START", "STOP")]
@@ -1534,25 +1574,30 @@ observeEvent( input$files , {
       bp <- values$view[["bandpass"]]
       bpflt <- values$view[["bpflt"]]
 
+      df <- values$opt[["init.epochs.aligned"]] 
+
       isolate({
-        #    cat( "\nin renderPlot()\n" )
+#            cat( "\nin renderPlot()\n" )
 
         # epochs are the (30-second) spanning epochs which are fetched (that always)
         # if zoom is defined, then back calculate
 
         # should not happen, but if for some reason nothing is defined,
         # display the first epoch:
-        if (is.null(epochs) & is.null(zoom)) {
+
+        if ( is.null(epochs) & is.null(zoom) ) {
           epochs <- c(1, 1)
-          zoom <- c(0, 30)
+	  sec1 <- df$START[ df$E == 1 ] 
+          zoom <- c(sec1, sec1+30)
           values$view[["raw.signals"]] <- T
         } else {
           if (is.null(epochs)) {
             epochs <- c(floor((zoom[1] / 30) + 1), floor((zoom[2] / 30) + 1))
           }
 
-          if (is.null(zoom)) {
-            zoom <- c((epochs[1] - 1) * 30, epochs[2] * 30)
+         if (is.null(zoom)) {
+           zoom <- c((epochs[1] - 1) * 30, epochs[2] * 30)
+ #           zoom <- c( df$START[ df$E == epochs[1] ] , df$
           }
 
           epochs <- c(floor(epochs[1]), ceiling(epochs[2]))
@@ -1660,13 +1705,14 @@ observeEvent( input$files , {
             for (ch in rev(chs)) {
               req(epochs[1] >= 1, epochs[2] <= values$opt[["ne"]])
 
-              #               cat( "ch",ch,"\n")
-              #               cat( "ep" , epochs , "\n")
-              # 	       cat( "secs" , secs , "\n" )
+              cat( "ZZch",ch,"\n")
+              cat( "ZZep" , epochs , "\n")
+       	      cat( "ZZsecs" , secs , "\n" )
 
               #                dat <- ldata(epochs[1]:epochs[2], chs = ch)
               qry <- list(range(dfe$START[epochs[1]], dfe$STOP[epochs[2]]))
               dat <- ldata.intervals(qry, chs = ch)
+	      print(head(dat))
               dat <- dat[dat$SEC >= secs[1] & dat$SEC <= secs[2], ]
               ts <- dat$SEC
               empty <- length(ts) == 0
@@ -2342,4 +2388,10 @@ observeEvent( input$files , {
       }
     }
   })
+
 }
+
+
+
+
+

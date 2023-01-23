@@ -20,7 +20,7 @@
 #
 #  --------------------------------------------------------------------
 
-# source("ui.R"); source("server.R"); shinyApp(ui, server)
+# source("ui.R"); source("server.R"); shinyApp(shinyUI, server)
 
 library(shiny)
 library(luna)
@@ -83,12 +83,20 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
       width = 2,
 
       # File input
+      
       fileInput("files",
         "Moonlight/Luna",
         multiple = T,
         accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot")
       ),
-      textOutput("text.header1a"),
+
+      div(style = "margin-top: -15px"),
+      textOutput("text.header1a"),  
+      hr(),
+      div(style = "margin-top: -10px"),
+      actionButton("load.default", "Load example EDF" , width='100%'),
+      div(style = "margin-top: -10px"),
+      hr(),
 
       # Select channels
       selectInput("channels",
@@ -99,25 +107,29 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
       ),
 
       # Select annotations
+      div(style = "margin-top: -10px"),
       selectInput("annots",
         label = h5("Annotations"),
         choices = list(),
         multiple = T,
         selectize = T
       ),
+      div(style = "margin-top: -10px"),
       selectInput("psd.ch",
         label = h5("Spectrogram"),
         choices = list(), multiple = F, selectize = F
       ),
+      div(style = "margin-top: -10px"),
       selectInput("disp.ann",
         h5("Listed annotations"), list(),
         multiple = TRUE, selectize = TRUE
       ),
+      div(style = "margin-top: -10px"),
       selectInput("sel.inst", h5("Instances"), list(),
         multiple = TRUE, selectize = FALSE
       ),
       fluidRow(
-        column(6, actionButton("reepoch", "Re-epoch")),
+        column(6, actionButton("reepoch", "Re-epoch") ),
         column(6, actionButton("reset", "Refresh"))
       )
     ),
@@ -136,9 +148,9 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
         dblclick = "hypno_dblclick",
         brush = brushOpts(id = "hypno_brush", direction = "x", resetOnNew = F)
       ),
-      plotOutput("mask.plot", width = "100%", height = "15px"),
-      hr(style = "border-top: 1px solid #000000;"),
-      tabsetPanel(
+      plotOutput("mask.plot", width = "100%", height = "20px"),
+      div(style = "margin-top: 10px"),
+      tabsetPanel( id = "maintabs" , 
         tabPanel(
           "Header",
           textOutput("text.header1b"),
