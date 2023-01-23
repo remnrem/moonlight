@@ -80,15 +80,9 @@ RUN mkdir /root/moon
 COPY ui.R /root/moon
 COPY server.R /root/moon
 COPY pops /root/moon/pops
+COPY data /root/moon/data
 
-<<<<<<< HEAD
-COPY ui.R server.R /srv/shiny-server/
-COPY pops /srv/shiny-server/pops
-
-USER shiny
-=======
 COPY Rprofile.site /usr/local/lib/R/etc/
->>>>>>> a09d924e3fff02905867a8fe4e5f9fbf70b5598a
 
 EXPOSE 3838
 

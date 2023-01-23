@@ -67,7 +67,7 @@ pal10 <- c(
 # ------------------------------------------------------------
 
 
-server <- function(input, output, session ) {
+shinyServer <- function(input, output, session ) {
  
 
 # ------------------------------------------------------------
