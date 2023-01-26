@@ -92,4 +92,4 @@ To see whether the service is up and running, one can use:
 sudo systemctl status shinyproxy
 ```
 Less than 10 seconds later, you can point your browser to http://localhost:9191 and use your Shiny apps!<br />
-More advanced information on the usage and configuration of ShinyProxy is available on the [Configuration](https://www.shinyproxy.io/documentation/configuration/) page.
+More advanced information on the usage and configuration of ShinyProxy is available on the [Configuration](https://www.shinyproxy.io/documentation/configuration/) page and [Openanalytics Github](https://github.com/openanalytics/shinyproxy-config-examples) page.
