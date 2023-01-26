@@ -22,7 +22,16 @@ ShinyProxy is written using mature and robust Java technology and you will need 
 ```
 sudo apt install ./zulu8.68.0.19-ca-jdk8.0.362-linux_amd64.deb
 ```
-
+To check your version of Java is Java 8 (or higher), run
+```
+java -version
+```
+which should display something along
+```
+openjdk version "1.8.0_362"
+OpenJDK Runtime Environment (Zulu 8.68.0.19-CA-linux64) (build 1.8.0_362-b08)
+OpenJDK 64-Bit Server VM (Zulu 8.68.0.19-CA-linux64) (build 25.362-b08, mixed mode)
+```
 ## 2) Docker
 
 #### Download and Install [Docker for ubuntu](https://docs.docker.com/engine/install/ubuntu/)
