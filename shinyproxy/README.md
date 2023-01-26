@@ -22,7 +22,7 @@ ShinyProxy is written using mature and robust Java technology and you will need 
 ```
 sudo apt install ./zulu8.68.0.19-ca-jdk8.0.362-linux_amd64.deb
 ```
-To check your version of Java is Java 8 (or higher), run
+To check your version of Java, run
 ```
 java -version
 ```
