@@ -1,0 +1,38 @@
+proxy:
+    title:
+    landing-page: /
+    heartbeat-rate: 15000
+    heartbeat-timeout: 120000
+    port: 9191
+    template-path: ./templates
+    container-wait-time: 800000
+    container-log-path: ./container-logs
+    support:
+      mail-to-address: smpurcell@bwh.harvard.edu
+  
+    authentication: none
+    usage-stats-url: micrometer
+    usage-stats-micrometer-prefix: shinyproxy
+
+    docker:
+      cert-path: /home/none
+      url: http://localhost:2375
+      port-range-start: 20000
+      port-range-max: 20009
+
+    specs:
+    - id: moonlight
+      display-name: Moonlight
+      container-cmd: ["R", "-e", "shiny::runApp('/root/moon')"]
+      container-image: moonlight-webapp
+      max-instances: 1
+
+management:
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  file:
+    name: shinyproxy.log
