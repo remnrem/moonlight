@@ -27,7 +27,7 @@ To check your version of Java, run
 java -version
 ```
 which should display something along
-```
+```js
 openjdk version "1.8.0_362"
 OpenJDK Runtime Environment (Zulu 8.68.0.19-CA-linux64) (build 1.8.0_362-b08)
 OpenJDK 64-Bit Server VM (Zulu 8.68.0.19-CA-linux64) (build 25.362-b08, mixed mode)
