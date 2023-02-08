@@ -1,0 +1,80 @@
+FROM --platform=$BUILDPLATFORM rocker/r-ver:4.2.1
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    --no-install-recommends \
+    g++ \
+    git \
+    nano \
+    wget \
+    zlib1g-dev \
+    fftw3-dev \
+    libgit2-dev \
+    libssl-dev \
+    libssh2-1-dev \
+    libxml2-dev \
+    libcurl4-openssl-dev \
+    libomp-dev \
+    java-common \
+    libasound2 \
+    libxtst6 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /Programme
+RUN mkdir /root/moon
+COPY ui.R /root/moon
+COPY server.R /root/moon
+COPY pops /root/moon/pops
+COPY data /root/moon/data
+
+ENV _R_SHLIB_STRIP_=true
+
+RUN install2.r --error --skipinstalled \
+    shiny \
+    git2r \
+    data.table \
+    plotrix \
+    geosphere \
+    DT \
+    shinyFiles \
+    shinydashboard \
+    lubridate \
+    wkb \
+    aws.s3 \
+    shinybusy \
+    shinythemes
+
+RUN apt remove cmake \
+&& cd /Programme \
+&& wget https://cmake.org/files/v3.26/cmake-3.26.0-rc1-linux-aarch64.tar.gz \
+&& tar -xvf cmake-3.26.0-rc1-linux-aarch64.tar.gz \
+&& /Programme/cmake-3.26.0-rc1-linux-aarch64/bin/cmake --version
+
+RUN cd /Programme && git clone --recursive https://github.com/microsoft/LightGBM \
+ && cd LightGBM \
+ && mkdir build \
+ && cd build \
+ && /Programme/cmake-3.26.0-rc1-linux-aarch64/bin/cmake .. \
+ && make -j4
+
+## Luna
+RUN cd /Programme \
+ && git clone https://github.com/remnrem/luna-base.git \
+ && cd luna-base \
+ && make -j 2 LGBM=1 LGBM_PATH=/Programme/LightGBM/
+
+## LunaR
+RUN cd /Programme \
+ && cp /Programme/LightGBM/lib_lightgbm.so /usr/local/lib/ \
+ && cp /Programme/LightGBM/lib_lightgbm.so /usr/lib/ \
+ && git clone https://github.com/remnrem/luna.git \
+ && echo 'PKG_LIBS=include/libluna.a -L$(FFTW)/lib/ -L${LGBM_PATH} -lfftw3 -l_lightgbm' >> luna/src/Makevars \
+ && LGBM=1 LGBM_PATH=/Programme/LightGBM/ R CMD INSTALL luna
+
+COPY Rprofile.site /usr/local/lib/R/etc/
+
+EXPOSE 3838
+
+CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]
