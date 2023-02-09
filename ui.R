@@ -20,7 +20,7 @@
 #
 #  --------------------------------------------------------------------
 
-# source("ui.R"); source("server.R"); shinyApp(shinyUI, server)
+# source("ui.R"); source("server.R"); shinyApp(shinyUI, shinyServer)
 
 library(shiny)
 library(luna)
@@ -366,6 +366,17 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
 	   ))	   
         ),
 
+
+        tabPanel("Norms",
+           textOutput( "norm.lab" , inline = FALSE), hr(col="white"), 
+           fluidRow( column( 2, numericInput("norm.age", label = h5("Age (years)"), min = 0 , max = 88 , value = 40 )  ,
+         	               radioButtons("norm.sex", "Sex" , c("Male" = "M" , "Female" = "F" ) ) ,
+			       selectInput("norm.eegF", label = h5("Frontal"), choices = list(), multiple = F, selectize = T),
+			       selectInput("norm.eegC", label = h5("Central"), choices = list(), multiple = F, selectize = T),
+     			       selectInput("norm.eegO", label = h5("Occipital"), choices = list(), multiple = F, selectize = T)
+			       ),
+                    column( 10 , plotOutput("norm.plots", width = "100%", height = "500px" ) ) )
+        ),
 
         tabPanel(
           "Luna",

@@ -30,7 +30,7 @@ library(DT)
 # Options
 
 # Max EDF file size ( default = 200Mb ) here --> 3G
-options(shiny.maxRequestSize = 3000 * 1024^2)
+options(shiny.maxRequestSize = 2000 * 1024^2)
 
 # set error handler for lunaR
 lmoonlight_mode()
@@ -131,7 +131,9 @@ load.data <- observeEvent( values$file.details , {
    values$nz <- 1
    values$canonical <- NULL
    values$LOFF <- values$LON <- "." 
- 
+
+
+
  # other things to clear
    updateSelectInput( session, "evalsel", choices = "" , label = "" , selected = 0 )
    updateSelectInput( session, "plotT",   choices = "" , label = NULL , selected = 0 )
@@ -165,6 +167,11 @@ load.data <- observeEvent( values$file.details , {
       updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = "" , label = NULL , selected = 0)
 
+ # norms
+    updateSelectInput( session, "norm.eegF", choices = "" , label = NULL , selected = 0 )
+    updateSelectInput( session, "norm.eegC", choices = "" , label = NULL , selected = 0 )
+    updateSelectInput( session, "norm.eegO", choices = "" , label = NULL , selected = 0 )
+    
   # now announce that we have new data
    values$hasedf <- ! is.null( edf.name )
    values$hasannots <- ! is.null( annot.names )
@@ -305,12 +312,14 @@ observeEvent( input$files , {
   update.hypnogram <- function() {
     req(values$hasstaging)
     ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = ""))
+    cat("here1\n")
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE")]
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
+    cat("here2\n")
   }
 
 
@@ -342,8 +351,10 @@ observeEvent( input$files , {
 
       values$opt[["header2"]] <- ret$HEADERS$CH
       values$opt[["header2"]] <- values$opt[["header2"]][, c("CH", "PDIM", "SR", "PMIN", "PMAX", "TRANS")]
+      values$opt[["header2"]]$PMIN <- signif( values$opt[["header2"]]$PMIN , 4 )
+      values$opt[["header2"]]$PMAX <- signif( values$opt[["header2"]]$PMAX , 4 ) 
       names(values$opt[["header2"]]) <- c("Channel", "Unit", "Sample-rate", "Min", "Max", "Transducer")
-
+      
       # segments
       values$opt[["curr.segsumm"]] <- ret$SEGMENTS$BL
       values$opt[["curr.segidx"]] <- ret$SEGMENTS$SEG[, c("START", "STOP")]
@@ -424,6 +435,10 @@ observeEvent( input$files , {
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = s50, selected = 0)
+
+      updateSelectInput( session, "norm.eegF", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "norm.eegC", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "norm.eegO", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
 
       # Get mask
       values$opt[["unmasked"]] <- ret$DUMP_MASK$E$E[ret$DUMP_MASK$E$EMASK == 0]
@@ -721,9 +736,9 @@ observeEvent( input$files , {
       maxe <- ceiling(brush$xmax * 120) + 1
       cat(mine, maxe, "is min/max E\n")
       values$opt[["hypno.epochs"]]$STAGE <- rep("L", ne)
-      print(values$opt[["hypno.epochs"]])
+      #print(values$opt[["hypno.epochs"]])
       values$opt[["hypno.epochs"]]$STAGE[mine:maxe] <- values$opt[["all.hypno.epochs"]]$STAGE[mine:maxe]
-      print(values$opt[["hypno.epochs"]])
+      #print(values$opt[["hypno.epochs"]])
       # set LON / LOFF in seconds
       values$LOFF <- brush$xmin * 3600
       values$LON <- brush$xmax * 3600
@@ -738,7 +753,7 @@ observeEvent( input$files , {
 
   output$table.hypno <- DT::renderDataTable({
     req(values$hasedf, values$hasstaging)
-
+    cat("ST1\n")
     m <- as.data.frame(matrix(
       c(
         "TRT", "Total Recording Time, based on scored epochs (T0 – T6) (mins)",
@@ -780,14 +795,26 @@ observeEvent( input$files , {
       ncol = 2, byrow = T
     ))
 
+cat("ST2\n")
+    print( values$opt[["hypno.stats"]] )
+    print( dim( values$opt[["hypno.stats"]] ) ) 
+    
     # spacers
     values$opt[["hypno.stats"]][, " "] <- NA
     values$opt[["hypno.stats"]][, "  "] <- NA
     values$opt[["hypno.stats"]][, "   "] <- NA
 
+    cat("ST2a\n")
+
+print( dim(m))
+print(m)
+print( dim( values$opt[["hypno.stats"]] ) )
+
     # add in values
     m$VALUE <- round(as.numeric(values$opt[["hypno.stats"]][, m[, 1]]), 3)
 
+    cat("ST3\n")
+    
     DT::datatable(m,
       options = list(
         scrollY = "380px",
@@ -803,7 +830,8 @@ observeEvent( input$files , {
 
   output$table.hypno.times <- DT::renderDataTable({
     req(values$hasedf, values$hasstaging)
-    m <- as.data.frame(matrix(
+        cat("STTT\n")
+     m <- as.data.frame(matrix(
       c(
         "X0_START", "Study Start",
         "X1_LIGHTS_OFF", "Lights Off time (or start of recording)",
@@ -1551,7 +1579,7 @@ observeEvent( input$files , {
   output$signal.view <- renderPlot(
     {
       req( c(input$channels, input$annots) )
-      req( length( input$channels ) != 0 || lenth(  input$annots ) != 0 )
+      req( length( input$channels ) != 0 || length(  input$annots ) != 0 )
 
 
       # as order of updates if off (urgh... need to figure out a fix)
@@ -2117,6 +2145,124 @@ observeEvent( input$files , {
     })
     update()
   })
+
+
+  # ------------------------------------------------------------
+  # Age norms
+  #
+
+
+  calcNormativeData <- reactive({    
+    req( input$norm.eegC, input$norm.eegF, input$norm.eegO )
+
+    # get normative data
+    # calculate values for this particular sample
+    load( "data/SleepEEGAgeNorm.RData" )
+
+  # OCC "alpha_W_0"
+  # CEN "theta_N1_C", "sigma_N2_C", "delta_N3_C"
+  # CEN/FRT(N2) :     
+  
+  has.cen <- ! is.null( input$norm.eegC )
+  has.frt <- ! is.null( input$norm.eegF )
+  has.occ <- ! is.null( input$norm.eegO ) 
+
+  req( has.cen || has.frt || has.occ ) 
+
+  sigs <- c( ifelse( has.cen , input$norm.eegC , "." ) ,
+             ifelse( has.frt , input$norm.eegF , "." ) ,
+	     ifelse( has.occ , input$norm.eegO , "." ) )
+
+  # always refresh(), i.e. clear MASK
+#  lrefresh()
+ 
+  # PSD, w/ user-defined total power 
+  k1 <- leval( paste( "EPOCH align & STAGE & PSD epoch total=0.5-20 sig=" , sigs , sep="" ) ) 
+  ss <- k1$STAGE$E[, c("E","STAGE") ]
+
+  alpha <- theta <- sigma <- delta <- data.frame()
+
+  alpha <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
+  theta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "THETA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+  sigma <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "SIGMA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+  delta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "DELTA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+
+  totalO <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
+  totalC <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+
+  # merge/subset
+  alpha  <- merge( ss , alpha , by="E" )
+  theta  <- merge( ss , theta , by="E" )
+  sigma  <- merge( ss , sigma , by="E" )
+  delta  <- merge( ss , delta , by="E" )
+  totalO <- merge( ss , totalO , by="E" )
+  totalC <- merge( ss , totalC , by="E" )
+
+  alpha <- alpha$PSD[ alpha$STAGE == "W" ]
+  theta <- theta$PSD[ theta$STAGE == "N1" ]
+  sigma <- sigma$PSD[ sigma$STAGE == "N2" ]
+  delta <- delta$PSD[ delta$STAGE == "N3" ]
+  totalOW <- totalO$PSD[ totalO$STAGE == "W" ]
+  totalCN1 <- totalO$PSD[ totalC$STAGE == "N1" ]
+  totalCN2 <- totalO$PSD[ totalC$STAGE == "N2" ]
+  totalCN3 <- totalO$PSD[ totalC$STAGE == "N3" ]  
+
+  # outlier removal and normalization
+  alpha <- median( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
+  theta <- median( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
+  sigma <- median( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
+  delta <- median( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
+
+#  k <- leval
+# "spindle_amp_c", "spindle_amp_f"
+# "spindle_dens_c", "spindle_dens_f",
+# "spindle_dur_c",  "spindle_dur_f"
+# "spindle_freq_c", "spindle_freq_f"
+
+   list( alpha = alpha, theta = theta , sigma = sigma , delta = delta ,
+         ref.alpha = alpha_W_0 , ref.theta = theta_N1_C , ref.sigma = sigma_N2_C , ref.delta = delta_N3_C ) 
+
+  })
+
+
+fnorm.plot1 <- function( d , val, age , sex , label ) {
+
+ yage <- d$Age_years
+ ageega <- c( yage, rev(yage) )
+ # reference range:
+ ylim <- range( d[,-1] , na.rm=T )
+ ysp <- ylim[2] - ylim[1]
+ ylim <- c( ylim[1] - ysp * 0.2 , ylim[2] + ysp * 0.2 )
+ if ( ylim[1] < 0 ) ylim[1] = 0
+ plot( ageega , c( d[,2] , rev(d[,3] ) ) , type="n" , xlab="log(Age)" , ylab=label , ylim = ylim )
+  if ( sex == "M" ) { 
+   polygon( ageega , c( d[,2] , rev(d[,3] ) ) , col= rgb( 0,0,255,30,max=255) , border=NA)
+   polygon( ageega , c( d[,4] , rev(d[,5] ) ) , col= rgb( 0,0,255,30,max=255), border=NA)
+   polygon( ageega , c( d[,6] , rev(d[,7] ) ) , col= rgb( 0,0,255,30,max=255), border=NA)
+ } else { 
+  polygon( ageega , c( d[,8] , rev(d[,9] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
+  polygon( ageega , c( d[,10] , rev(d[,11] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
+  polygon( ageega , c( d[,12] , rev(d[,13] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
+ }
+
+ abline( h = val , col = ifelse( sex == "M" , "blue" , "red" ) , lwd=0.5 )
+ points( age , val , col = ifelse( sex == "M" , "blue" , "red" ) , cex=2 , pch=20 )
+ 
+}
+
+  output$norm.lab <- renderText({ "Age/sex sleep EEG from norms Sun et al (2023) | https://doi.org/10.1016/j.neurobiolaging.2023.01.006" } ) 
+
+  output$norm.plots <- renderPlot({
+     req(values$hasdata )
+
+     res <- calcNormativeData()
+     par( mfcol=c(2,2) , mar=c(3,4,1,1) )
+     fnorm.plot1( res$ref.alpha , res$alpha , input$norm.age , input$norm.sex , "Occ. Alpha (W)" )
+     fnorm.plot1( res$ref.theta , res$theta , input$norm.age , input$norm.sex , "Cen. theta (N1)" )
+     fnorm.plot1( res$ref.sigma , res$sigma , input$norm.age , input$norm.sex , "Cen. sigma (N2)" )	  
+     fnorm.plot1( res$ref.delta , res$delta , input$norm.age , input$norm.sex , "Cen. delta (N3)" )
+  })
+
 
 
 
