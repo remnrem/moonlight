@@ -1,5 +1,4 @@
-
-FROM rocker/r-ver:4.2.1
+FROM rocker/r-ver:4.1.0 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,24 +16,16 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libcurl4-openssl-dev \
     libomp-dev \
-    java-common \
-    libasound2 \
-    libxtst6 \
     cmake \
+    libxtst6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir /Programme
-RUN mkdir /root/moon
-COPY ui.R /root/moon
-COPY server.R /root/moon
-COPY pops /root/moon/pops
-COPY data /root/moon/data
+WORKDIR /Programme
 
 ENV _R_SHLIB_STRIP_=true
 
-RUN cd /Programme \
- && git clone --recursive https://github.com/microsoft/LightGBM \
+RUN git clone --recursive https://github.com/microsoft/LightGBM \
  && cd LightGBM \
  && mkdir build \
  && cd build \
@@ -57,21 +48,60 @@ RUN install2.r --error --skipinstalled \
     shinythemes
 
 # Luna
-RUN cd /Programme \
- && git clone https://github.com/remnrem/luna-base.git \
+RUN git clone https://github.com/remnrem/luna-base.git \
  && cd luna-base \ 
- && make -j 2 LGBM=1 LGBM_PATH=/Programme/LightGBM/
+ && make -j 2 LGBM=1 LGBM_PATH=/Programme/LightGBM/ \
+ && ln -s /Programme/luna-base/luna /usr/local/bin/luna \
+ && ln -s /Programme/luna-base/destrat /usr/local/bin/destrat \
+ && ln -s /Programme/luna-base/behead /usr/local/bin/behead \
+ && ln -s /Programme/luna-base/fixrows /usr/local/bin/fixrows
 
 ## LunaR
-RUN cd /Programme \
- && cp /Programme/LightGBM/lib_lightgbm.so /usr/local/lib/ \
- && cp /Programme/LightGBM/lib_lightgbm.so /usr/lib/ \
+RUN cp LightGBM/lib_lightgbm.so /usr/local/lib/ \
+ && cp LightGBM/lib_lightgbm.so /usr/lib/ \
  && git clone https://github.com/remnrem/luna.git \
  && echo 'PKG_LIBS=include/libluna.a -L${LGBM_PATH} -lfftw3 -l_lightgbm' >> luna/src/Makevars \
  && LGBM=1 LGBM_PATH=/Programme/LightGBM/ R CMD INSTALL luna
 
 COPY Rprofile.site /usr/local/lib/R/etc/
 
-EXPOSE 3838
+#------------------------------- Multi-stage build (keeps the image size down)-------------------------------------------
+FROM rocker/r-ver:4.1.0
+ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get update && apt-get install -y \
+    --no-install-recommends \
+    g++ \
+    git \
+    nano \
+    wget \
+    zlib1g-dev \
+    fftw3-dev \
+    libgit2-dev \
+    libssl-dev \
+    libssh2-1-dev \
+    libxml2-dev \
+    libcurl4-openssl-dev \
+    libomp-dev \
+    cmake \
+    libxtst6 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /Programme
+RUN mkdir /root/moon
+COPY ui.R server.R /root/moon
+COPY pops /root/moon/pops
+COPY data /root/moon/data
+
+ENV _R_SHLIB_STRIP_=true
+COPY --from=builder /Programme/luna-base/luna /usr/local/bin/luna
+COPY --from=builder /Programme/luna-base/destrat /usr/local/bin/destrat
+COPY --from=builder /Programme/luna-base/behead /usr/local/bin/behead
+COPY --from=builder /Programme/luna-base/fixrows /usr/local/bin/fixrows
+COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/local/lib
+COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/lib
+COPY --from=builder /usr/local/lib/R /usr/local/lib/R
+EXPOSE 3838
 CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]
+
