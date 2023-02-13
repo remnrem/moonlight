@@ -88,7 +88,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /Programme
 RUN mkdir /root/moon
 COPY ui.R server.R /root/moon
 COPY pops /root/moon/pops
