@@ -66,9 +66,54 @@ pal10 <- c(
 #
 # ------------------------------------------------------------
 
-
 shinyServer <- function(input, output, session ) {
- 
+
+
+
+# ------------------------------------------------------------
+# shinyFiles reading from host filesystem
+
+roots <- c( data = "/data" , wd = '.' ) 
+
+shinyFileChoose(input, 'lfiles',
+                roots = roots, 
+		filetypes=c('', 'txt','edf','annot','xml','eannot','csv','tsv'))
+
+observeEvent( input$lfiles , {
+  req( ! is.integer( input$lfiles ) )
+
+   df <- parseFilePaths( roots , input$lfiles )
+   df$name <- as.character( df$name )
+   df$datapath <- as.character( df$datapath )
+   
+  # set to null
+  values$file.details <- NULL
+  edf.name <- edf.path <- NULL
+  annot.names <- annot.paths <- NULL
+
+  # single EDF
+  idx <- grep(".edf", ignore.case = T, df$name)
+  if ( length(idx) >= 1 ) {
+    edf.name <- df$name[idx[1]]
+    edf.path <- df$datapath[idx[1]]
+  }
+
+  # 1 or more annotation files
+  idx <- c(
+     grep(".xml", ignore.case = T, df$name),
+     grep(".annot", ignore.case = T, df$name),
+     grep(".eannot", ignore.case = T, df$name) )
+
+  if ( length(idx) >= 1 ) {
+    annot.names <- df$name[idx]
+    annot.paths <- df$datapath[idx]
+  }
+
+  # trigger load data
+  values$file.details <- list( edf.name = edf.name , edf.path = edf.path ,  annot.names = annot.names  , annot.paths = annot.paths )
+
+} )
+
 
 # ------------------------------------------------------------
 # moonlock to prevent new libraries from starting within the
@@ -104,9 +149,12 @@ values <- reactiveValues( opt = list() )
 
 
 observeEvent(input$load.default, {
-values$file.details <- list( edf.name = "learn-nsrr02.edf" , edf.path = "data/learn-nsrr02.edf" ,  annot.names = "learn-nsrr02.xml" , annot.paths = "data/learn-nsrr02.xml" )
+values$file.details <-
+ list( edf.name = "learn-nsrr02.edf" ,
+       edf.path = "data/learn-nsrr02.edf" ,
+       annot.names = "learn-nsrr02.xml" ,
+       annot.paths = "data/learn-nsrr02.xml" )
 })
-
 
 load.data <- observeEvent( values$file.details , {
 
@@ -126,12 +174,19 @@ load.data <- observeEvent( values$file.details , {
    values$soap <- NULL
    values$pops <- NULL
    values$view <- NULL
+   values$mtm <- NULL
+   values$mtm1 <- NULL
+   values$mtm2 <- NULL
+   values$mtm3 <- NULL
+   values$sigsumm <- NULL
+   values$sigsumm2 <- NULL
+   values$sigsumm2.label <- NULL
+   values$sigsumm2.interval <- NULL
    values$evalout <- NULL
    values$manipout <- NULL
    values$nz <- 1
    values$canonical <- NULL
    values$LOFF <- values$LON <- "." 
-
 
 
  # other things to clear
@@ -142,30 +197,32 @@ load.data <- observeEvent( values$file.details , {
    updateSelectInput( session, "disp.ann", choices = "" , label = NULL , selected = 0 )
 
  # hypno assignments
-      updateSelectInput(session, "hypno.n1", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput(session, "hypno.n2", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput(session, "hypno.n3", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput(session, "hypno.r", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput(session, "hypno.w", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput(session, "hypno.u", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.n1", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.n2", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.n3", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.r", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.w", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput(session, "hypno.u", choices = "" , label = NULL , selected = 0 )
 
-      # manips
+# mtm
+   updateSelectInput(session, "mtm.ch", choices = "" , label = NULL , selected = 0 )
 
-      updateSelectInput( session, "reref1",   choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "reref2",   choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "resample", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "drop",      choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "transch",   choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "copyold",   choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "renameold", choices = "" , label = NULL , selected = 0 )
-      updateSelectInput( session, "filter",   choices = "" , label = NULL , selected = 0 )
-      clear_sel_inst()
-      updateSelectInput( session, "psd.ch", choices = "" , label = NULL , selected = 0 ) 
-      updateSelectInput( session, "soap.ch", choices = "" , label = NULL , selected = 0 )
+  # manips
+   updateSelectInput( session, "reref1",   choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "reref2",   choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "resample", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "drop",      choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "transch",   choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "copyold",   choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "renameold", choices = "" , label = NULL , selected = 0 )
+   updateSelectInput( session, "filter",   choices = "" , label = NULL , selected = 0 )
+   clear_sel_inst()
+   updateSelectInput( session, "psd.ch", choices = "" , label = NULL , selected = 0 ) 
+   updateSelectInput( session, "soap.ch", choices = "" , label = NULL , selected = 0 )
 
-      updateSelectInput(session, "pops.m1.eeg1", choices = "" , label = NULL , selected = 0)
-      updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
-      updateSelectInput(session, "pops.m2.eeg2", choices = "" , label = NULL , selected = 0)
+   updateSelectInput(session, "pops.m1.eeg1", choices = "" , label = NULL , selected = 0)
+   updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
+   updateSelectInput(session, "pops.m2.eeg2", choices = "" , label = NULL , selected = 0)
 
  # norms
     updateSelectInput( session, "norm.eegF", choices = "" , label = NULL , selected = 0 )
@@ -219,9 +276,10 @@ load.data <- observeEvent( values$file.details , {
 
 
 
+
+
 observeEvent( input$files , {
 
-  cat( "GETTING FILES\n")
   values$file.details <- NULL
 
   edf.name <- edf.path <- NULL
@@ -247,9 +305,9 @@ observeEvent( input$files , {
   }
 
   # trigger load data
-  cat( "setting\n" )
+  
   values$file.details <- list( edf.name = edf.name , edf.path = edf.path ,  annot.names = annot.names  , annot.paths = annot.paths )
-  cat( "setting CHANGED\n" )
+  
 })
 
 
@@ -353,7 +411,7 @@ observeEvent( input$files , {
       values$opt[["header2"]] <- values$opt[["header2"]][, c("CH", "PDIM", "SR", "PMIN", "PMAX", "TRANS")]
       values$opt[["header2"]]$PMIN <- signif( values$opt[["header2"]]$PMIN , 4 )
       values$opt[["header2"]]$PMAX <- signif( values$opt[["header2"]]$PMAX , 4 ) 
-      names(values$opt[["header2"]]) <- c("Channel", "Unit", "Sample-rate", "Min", "Max", "Transducer")
+      names(values$opt[["header2"]]) <- c("Channel", "Unit", "SRate", "Min", "Max", "Transducer")
       
       # segments
       values$opt[["curr.segsumm"]] <- ret$SEGMENTS$BL
@@ -431,6 +489,8 @@ observeEvent( input$files , {
 
       updateSelectInput( session, "psd.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
       updateSelectInput( session, "soap.ch", choices = s50, label = NULL , selected = 0 )
+
+      updateSelectInput( session, "mtm.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
 
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
@@ -562,6 +622,33 @@ observeEvent( input$files , {
 
 
   # ------------------------------------------------------------
+  # Base-level EDF headers output
+
+  output$table.header3 <- DT::renderDataTable({
+    req(values$hasedf)
+    df <- values$opt[["header1"]]
+    df$ID <- df$EDF_ID <- NULL
+    df <- df[, c("EDF_TYPE","NS","START_DATE","START_TIME","STOP_TIME","TOT_DUR_HMS","TOT_DUR_SEC","EPOCH","NR","REC_DUR") ]
+    df <- data.frame(t(df))
+    df$VAR <- rownames(df)
+    names(df) <- c("Value","Variable")
+    df <- df[,c("Variable","Value")]
+    df$Variable <- c( "EDF type" , "Number of signals", "Start date", "Start time", "Stop time", "Duration (h:m:s)", "Duration (sec)", "Duration (epochs)", "Number of records", "Record duration (sec)" )  
+    DT::datatable( df, 
+      extensions = c("Buttons"),
+      options = list(
+        scrollY = "375px",
+        paging = F,
+        info = FALSE,
+        searching = FALSE,
+        dom = "tB", buttons = list(list(extend = "copy", text = "Copy")),
+        columnDefs = list(list(className = "dt-left", targets = "_all"))
+      ),
+      rownames = FALSE
+    )
+  })
+
+  # ------------------------------------------------------------
   # Channel-wise EDF headers output
 
   output$table.header2 <- DT::renderDataTable({
@@ -570,7 +657,7 @@ observeEvent( input$files , {
     DT::datatable(values$opt[["header2"]],
       extensions = c("Buttons"),
       options = list(
-        scrollY = "300px",
+        scrollY = "375px",
         paging = F,
         info = FALSE,
         searching = FALSE,
@@ -1645,7 +1732,7 @@ print( dim( values$opt[["hypno.stats"]] ) )
         values$view[["raw.signals"]] <- (zoom[2] / 30 - zoom[1] / 30) < 10
 
         annots <- input$annots
-        chs <- input$channels
+        chs <-  input$channels 
         na <- length(annots)
         nc <- length(chs)
 
@@ -1733,14 +1820,14 @@ print( dim( values$opt[["hypno.stats"]] ) )
             for (ch in rev(chs)) {
               req(epochs[1] >= 1, epochs[2] <= values$opt[["ne"]])
 
-              cat( "ZZch",ch,"\n")
-              cat( "ZZep" , epochs , "\n")
-       	      cat( "ZZsecs" , secs , "\n" )
+#              cat( "ZZch",ch,"\n")
+#              cat( "ZZep" , epochs , "\n")
+#       	      cat( "ZZsecs" , secs , "\n" )
 
               #                dat <- ldata(epochs[1]:epochs[2], chs = ch)
               qry <- list(range(dfe$START[epochs[1]], dfe$STOP[epochs[2]]))
               dat <- ldata.intervals(qry, chs = ch)
-	      print(head(dat))
+	      #print(head(dat))
               dat <- dat[dat$SEC >= secs[1] & dat$SEC <= secs[2], ]
               ts <- dat$SEC
               empty <- length(ts) == 0
@@ -2278,7 +2365,7 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
     write(input$canonical, file = tfile)
 
     # run CANONICAL, w/ verbose output in console captured
-    values$canonical[["verb"]] <- capture.output(ret <- leval(paste("CANONICAL verbose file=", tfile, sep = "")))
+    values$manipout <- capture.output(ret <- leval(paste("CANONICAL verbose file=", tfile, sep = "")))
 
     # details
     values$canonical[["ch"]] <- ret$CANONICAL$CH
@@ -2365,7 +2452,7 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
     write(input$remaps, file = tfile)
 
     # run REMAP, w/ verbose output in console captured
-    values$canonical[["annverb"]] <- capture.output(ret <- leval(paste("REMAP allow-spaces optional-remap-col file=", tfile, sep = "")))
+    values$manipout <- capture.output(ret <- leval(paste("REMAP allow-spaces optional-remap-col file=", tfile, sep = "")))
     ret <- leval("ALIASES")
 
     # details
@@ -2535,9 +2622,317 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
     }
   })
 
+
+
+# ------------------------------------------------------------
+# MTM spectrogram explorer
+
+
+observeEvent( input$do.mtm , {
+ req( values$hasedf , input$mtm.ch )
+
+k30 <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=30                   tw=15 epoch" , sep="" ) )
+
+# get times of segments (START STOP DISC)
+k30$MTM$CH_SEG$ID <- k30$MTM$CH_SEG$CH <- NULL
+
+# exclude any segments that span a discontinuity
+k30$MTM$CH_SEG <- k30$MTM$CH_SEG[ k30$MTM$CH_SEG$DISC == 0 , ]
+
+k30$MTM$CH_SEG$DISC <- NULL
+
+# save freqs
+values$mtm[[ "f30" ]] <- k30$MTM$CH_F
+
+# make nonspare matrices (for use w/ lheatmap useRaster)
+mx30 <- max( k30$MTM$CH_SEG$SEG )
+
+f30 <- unique( k30$MTM$CH_F_SEG$F )
+nf30 <- length( unique( k30$MTM$CH_SEG$SEG ) )
+k30$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f30 ) , each = nf30 )
+
+m30 <- matrix( NA , nrow = length(f30) , ncol = mx30 )
+m30[ cbind( k30$MTM$CH_F_SEG$FIDX , k30$MTM$CH_F_SEG$SEG ) ] <- k30$MTM$CH_F_SEG$MTM
+
+values$mtm[[ "d30" ]] <- t( m30 )
+
+# save times
+values$mtm[[ "t30" ]] <- k30$MTM$CH_SEG
+
+
+})
+
+
+do.mid.mtm <- function()
+{
+ start <- values$mtm1[3]
+ stop  <- values$mtm1[4]
+ k5  <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=6   segment-inc=0.25 tw=3 epoch start=" , start , " stop=" , stop  , sep="" ) )
+ k5$MTM$CH_SEG$ID  <- k5$MTM$CH_SEG$CH <- NULL
+ k5$MTM$CH_SEG  <- k5$MTM$CH_SEG[ k5$MTM$CH_SEG$DISC == 0 , ]
+ k5$MTM$CH_SEG$DISC <- NULL
+ values$mtm[[ "t5" ]]  <- k5$MTM$CH_SEG
+ values$mtm[[ "f5" ]]  <- k5$MTM$CH_F
+ mx5  <- max( k5$MTM$CH_SEG$SEG )
+ f5  <- unique( k5$MTM$CH_F_SEG$F )
+ nf5 <- length( unique( k5$MTM$CH_SEG$SEG ) )
+ k5$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f5 ) , each = nf5 )
+ m5 <- matrix( NA , nrow = length(f5) , ncol = mx5 )
+ m5[ cbind( k5$MTM$CH_F_SEG$FIDX , k5$MTM$CH_F_SEG$SEG ) ] <- k5$MTM$CH_F_SEG$MTM
+ values$mtm[[ "d5" ]] <- t( m5 )
+}
+
+do.lwr.mtm <- function()
+{
+ start <- values$mtm2[3]
+ stop  <- values$mtm2[4]
+ k1  <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=2.5 segment-inc=0.05 tw=5 epoch start=" , start , " stop=" , stop , sep="" ) )
+ k1$MTM$CH_SEG$ID  <- k1$MTM$CH_SEG$CH <- NULL
+ k1$MTM$CH_SEG  <- k1$MTM$CH_SEG[ k1$MTM$CH_SEG$DISC == 0 , ]
+ k1$MTM$CH_SEG$DISC <- NULL
+ values$mtm[[ "t1" ]]  <- k1$MTM$CH_SEG
+ values$mtm[[ "f1" ]]  <- k1$MTM$CH_F
+ mx1  <- max( k1$MTM$CH_SEG$SEG )
+ f1  <- unique( k1$MTM$CH_F_SEG$F )
+ nf1 <- length( unique( k1$MTM$CH_SEG$SEG ) )
+ k1$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f1 ) , each = nf1 )
+ m1 <- matrix( NA , nrow = length(f1) , ncol = mx1 )
+ m1[ cbind( k1$MTM$CH_F_SEG$FIDX , k1$MTM$CH_F_SEG$SEG ) ] <- k1$MTM$CH_F_SEG$MTM
+ values$mtm[[ "d1" ]] <- t( m1 )
 }
 
 
+output$mtm.view1 <- renderPlot({
+  req( values$mtm )
+  req( input$mtm.flwr <  input$mtm.fupr ) 
+  frq <- values$mtm[[ "f30" ]]$F  
+  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
+  req( length(frq)>1 )
+  df <- values$mtm[[ "d30" ]]
+  df <- df[ , frq ] 
+  par(mar = c(0, 0, 0, 0))
+  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
+  else image( df , col = lturbo(100) , useRaster=T) 
+})
 
 
+output$mtm.view2 <- renderPlot({
+  req( values$mtm )
+  req( input$mtm.flwr <  input$mtm.fupr )
+  frq <- values$mtm[[ "f5" ]]$F
+  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
+  req( length(frq)>1 )
+  df <- values$mtm[[ "d5" ]]
+  df <- df[ , frq ]
+  # slice segments
+  if ( ! is.null( values$mtm1 ) )
+  {
+    tf <- values$mtm[[ "t5" ]]   # SECs -> SEGs from d5
+    segs <- tf$SEG[ tf$START >= values$mtm1[3] & tf$STOP <= values$mtm1[4] ]
+    df <- df[ segs , ]
+  }
+  par(mar = c(0,0,0,0))
+  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
+  else image( df , col = lturbo(100) , useRaster=T) 
 
+})
+
+output$mtm.view3 <- renderPlot({
+  req( values$mtm )
+  req( input$mtm.flwr <  input$mtm.fupr )
+  frq <- values$mtm[[ "f1" ]]$F
+  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
+  req( length(frq)>1 )
+  df <- values$mtm[[ "d1" ]]
+  df <- df[ , frq ]
+
+  # slice segments
+  if ( ! is.null( values$mtm2 ) )
+  {
+    # parent spans values$mtm1[3] to values$mtm1[4] (as seconds, fixed to top)
+    # this range is values$mtm2[1] to values$mtm2[2] (as prop of mid plot)
+    span <- values$mtm1[4] - values$mtm1[3]
+    start <- values$mtm1[3] + span * values$mtm2[1]
+    stop <- values$mtm1[3] + span * values$mtm2[2]
+    tf <- values$mtm[[ "t1" ]] # SECs -> SEGs from mid slice
+    tf <- tf[ tf$START >= start & tf$STOP <= stop , ]
+    values$mtm3 <- range( c( tf$START , tf$STOP ) ) 
+    df <- df[ tf$SEG , ]
+  }
+  # normalize
+  #for (j in 1:(dim(df)[2])) df[,j] <- scale(df[,j], center=T, scale=F)
+  par(mar = c(0, 0, 0, 0))
+  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
+  else image( df , col = lturbo(100) , useRaster=T) 
+
+})
+
+
+  observeEvent(input$mtm1_click, {
+    values$mtm1 <- input$mtm1_click$x
+    # top in seconds: ( always 0... in 30-seconds)
+    n30 <- dim( values$mtm[[ "d30" ]] )[1]
+    cat( "n30 = " , n30 , "\n" )
+    #mid point
+    tot <- ( 30 * n30 )
+    cat( "tot = " , n30 , "\n" )
+    t <- tot * input$mtm1_click$x
+    # 5 mins
+    if ( t < 150 ) t <- c( 0 , 300 )
+    else if ( t > tot - 150 ) t <- c( tot - 150 , tot )
+    else t <- c( t - 150 , t + 150 )
+    # prop, then secs
+    values$mtm1 <- c( t / tot , t ) 
+    cat("X = " , values$mtm1 , "\n")
+
+    # calculate mid + lower plots
+    do.mid.mtm()
+
+    # reset lower plot at start of this window
+    values$mtm2 <- c(0,10/300,values$mtm1[3],values$mtm1[3]+10) 	 
+    do.lwr.mtm()
+    })
+
+  observeEvent(input$mtm2_click, {
+    values$mtm2 <- input$mtm2_click$x
+    # mid span:
+    m <- values$mtm1 
+    tot <- m[4] - m[3]  #should always be 5 mins - i.e. fixed
+    t <- m[3] + tot * input$mtm2_click$x
+    cat("click",input$mtm2_click$x,"\n")
+    cat("mid",m,"\n")
+    # 10 seconds
+    cat("provisional t " , t , "\n" )
+    if ( t < m[3] + 5 ) t <- c( m[3] , m[3] + 10 )
+    else if ( t > m[4] - 5 ) t <- c( m[4] - 5 , m[4] )
+    else t <- c( t - 5 , t + 5 )
+    cat("t " , t , "\n" )
+    # props, then secs
+    values$mtm2 <- c( (t-m[3]) / tot , t )  
+    cat("X = " , values$mtm2 , "\n")
+    do.lwr.mtm()    
+    })
+
+output$mtm.tr12 <- renderPlot({
+  req( values$mtm1 )
+  par(mar = c(0, 0, 0, 0))
+  plot(c(0,1),c(0,1),type="n",axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
+  polygon( c(0,values$mtm1[1],values$mtm1[1],values$mtm1[2],values$mtm1[2],1), c(0,0.66,1,1,0.66,0), col="lightgray" , border="black" )
+})
+
+output$mtm.tr23 <- renderPlot({
+  req( values$mtm2 )
+  par(mar = c(0, 0, 0, 0))
+  plot(c(0,1),c(0,1),type="n",axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
+  polygon( c(0,values$mtm2[1],values$mtm2[1],values$mtm2[2],values$mtm2[2],1), c(0,0.66,1,1,0.66,0), col="lightgray" , border="black" )
+})
+
+output$mtm.view4 <- renderPlot({
+  req( values$mtm2 , values$mtm3 )
+  cat( "req", values$mtm2[3:4] , "\n" )
+  cat( "req", values$mtm3 , "\n" )
+  k <- ldata.intervals( list( values$mtm3 ) , input$mtm.ch ) 
+  par(mar = c(0, 0, 0, 0))  
+  plot(k$SEC, k[,3] , type="l" , lwd=0.8 , axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
+  abline( h = 0 , lty=2 , col="lightgray")
+})
+
+
+# ------------------------------------------------------------
+# Signal summary viewer
+
+
+output$sigsumm.view1 <- renderPlot({
+ req( values$sigsumm )
+ chs <- rev( input$channels )
+ nsig <- length(chs)
+ nsec <- 30 * values$opt[["ne"]]
+
+ winsor <- input$sigsumm.winsor
+
+ # original epochs
+ ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
+
+ par(mar=c(0,0,0,0))
+ plot( c(0,1) , c(0,1) , xlim=c(0,nsec) , ylim=c(0,nsig) , type="n" , xaxs="i" , yaxs="i" , xlab = "", ylab = "" , main = "" )
+ pal <- lturbo(100)
+ 
+ ch.idx <- 1
+ for (ch in chs) {
+   df <- values$sigsumm[[ ch ]]
+   df <- merge( df , ttable , by="E" )
+   if ( winsor > 0 ) {
+     df$H1 <- lwin( df$H1 , winsor )
+     df$H2 <- lwin( df$H2 , winsor )
+     df$H3 <- lwin( df$H3 , winsor )
+   }
+   mx1 <- range( df$H1 , na.rm=T)
+   mx2 <- range( df$H2 , na.rm=T)
+   mx3 <- range( df$H3 , na.rm=T)
+   r1 <-  mx1[2] - mx1[1]
+   r2 <-  mx2[2] - mx2[1]
+   r3 <-  mx3[2] - mx3[1]
+   if ( r1 <= 1e-8 ) r1 <- 1
+   if ( r2 <= 1e-8 ) r2 <- 1
+   if ( r3 <= 1e-8 ) r3 <- 1
+   y1 <- ( df$H1 - mx1[1] ) / r1
+   y2 <- ( df$H2 - mx2[1] ) / r2
+   y3 <- ( df$H3 - mx3[1] ) / r3
+   y2 <- round( y2 * 100 )
+   y3 <- round( y3 * 100 )
+   y2[ y2 < 1 ] <- 1 ; y3[ y3 < 1 ] <- 1 
+   midy <- ch.idx - 0.4
+   rect( df$START , midy        , df$START+30 , midy+0.4*y1 , col = pal[y2] , border=NA)
+   rect( df$START , midy-0.4*y1 , df$START+30 , midy        , col = pal[y3] , border=NA)
+   text( 90 , midy - 0.5 , ch , cex=1 , pos = 4 )
+   ch.idx <- ch.idx + 1    
+ }
+
+})
+
+
+output$sigsumm.view2 <- renderPlot({
+ req( values$hasedf )
+ if ( is.null( values$sigsumm2 ) ) {
+  par(mar=c(0,0,0,0)); frame()
+ } else {
+  req( length( values$sigsumm2 ) != 0 )
+  par(mar=c(0,0,0,0))
+  plot( values$sigsumm2  , type="l" , xlab="", ylab="" , xaxs="i", yaxs="i" , main="" , lwd=1 )
+  rng <- signif( range( values$sigsumm2  ) , 2 ) 
+  lbl <- paste( values$sigsumm2.label , ":", rng[1] , ".." , rng[2] )
+  legend( "bottomleft", lbl , box.col="lightgray",bg="white" )
+ }
+})
+
+observeEvent( input$do.sigsumm , {
+ req( values$hasedf )
+ req( input$channels )
+ req( length( input$channels ) != 0 )
+
+ values$sigsumm <- NULL
+ sigs <- paste( input$channels , collapse = "," )
+ k <- leval( paste( "SIGSTATS epoch mean sig=" , sigs , sep="" ) )
+ chs <- unique( k$SIGSTATS$CH$CH )
+ cat("CHS",chs,"\n")
+ ns <- length(chs)
+ k$SIGSTATS$CH_E$H1 <- log( k$SIGSTATS$CH_E$H1 ) 
+ for (ch in chs)
+  values$sigsumm[[ ch ]] <- k$SIGSTATS$CH_E[ k$SIGSTATS$CH_E$CH == ch , c("E","H1","H2","H3" ) ]
+
+} )
+
+observeEvent(input$sigsumm_hover, {
+#  cat( "input$sigsumm_hover:" , input$sigsumm_hover$x , input$sigsumm_hover$y , "\n" )
+  chs <- rev( input$channels ) 
+  ns <- length( chs )
+  # pull one epoch
+  t <- list( c( input$sigsumm_hover$x , input$sigsumm_hover$x+30) ) 
+  ch <- chs[ max(1,min( ns, floor( input$sigsumm_hover$y )+1 ) )  ]
+  values$sigsumm2 <- ldata.intervals( i = t , chs = ch )[,3] 
+  values$sigsumm2.label <- ch
+  values$sigsumm2.interval <- t
+})
+
+
+}

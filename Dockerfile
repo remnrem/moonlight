@@ -21,15 +21,12 @@ RUN apt-get update && apt-get install -y \
     libasound2 \
     libxtst6 \
     cmake \
+    libxt6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /Programme
 RUN mkdir /root/moon
-COPY ui.R /root/moon
-COPY server.R /root/moon
-COPY pops /root/moon/pops
-COPY data /root/moon/data
 
 ENV _R_SHLIB_STRIP_=true
 
@@ -70,6 +67,12 @@ RUN cd /Programme \
  && echo 'PKG_LIBS=include/libluna.a -L${LGBM_PATH} -lfftw3 -l_lightgbm' >> luna/src/Makevars \
  && LGBM=1 LGBM_PATH=/Programme/LightGBM/ R CMD INSTALL luna
 
+RUN mkdir /data
+
+COPY ui.R /root/moon
+COPY server.R /root/moon
+COPY pops /root/moon/pops
+COPY data /root/moon/data
 COPY Rprofile.site /usr/local/lib/R/etc/
 
 EXPOSE 3838

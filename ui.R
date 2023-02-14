@@ -27,6 +27,8 @@ library(luna)
 library(shinybusy)
 library(shinythemes)
 library(DT)
+library(shinyFiles)
+library(fs)
 
 # ------------------------------------------------------------
 # Options
@@ -42,8 +44,12 @@ pops.path <- "./pops"
 pops.libs <- c("s2", "s2")
 pops.versions <- c("20-Jan-2023", "20-Dec-2022")
 
-# canonical file
+# local mode: is default (look to 'host') unless running as server
+cat( "server mode MOONLIGHT_SERVER_MODE = [" , Sys.getenv("MOONLIGHT_SERVER_MODE")  , "]\n" , sep="" )
+local.mode <- Sys.getenv("MOONLIGHT_SERVER_MODE") == "" 
+local.mode <- T
 
+# canonical file
 canonical.sigs <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
 canonical.annots <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/annots.txt"
 
@@ -74,27 +80,26 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
   #  titlePanel( h3( "Moonlight/Luna" ) ),
 
   add_busy_spinner(spin = "fading-circle"),
-
+        
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
 
     # Sidebar panel for inputs ----
     sidebarPanel(
       width = 2,
+      h4( "Moonlight/Luna" ), 
+      if ( local.mode )
+       shinyFilesButton("lfiles", label="Load data", title="Please select EDF/annotations files", multiple=T,
+                        style = 'width: 100%' )
+      else
+       fileInput("files", label=NULL, multiple = T,accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot") ) ,
+          
+      if ( ! local.mode) div(style = "margin-top: -15px") , 
 
-      # File input
-      
-      fileInput("files",
-        "Moonlight/Luna",
-        multiple = T,
-        accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot")
-      ),
-
-      div(style = "margin-top: -15px"),
       textOutput("text.header1a"),  
       hr(),
       div(style = "margin-top: -10px"),
-      actionButton("load.default", "Load example EDF" , width='100%'),
+      actionButton("load.default", "Example data" , width='100%'),
       div(style = "margin-top: -10px"),
       hr(),
 
@@ -151,27 +156,29 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
       plotOutput("mask.plot", width = "100%", height = "20px"),
       div(style = "margin-top: 10px"),
       tabsetPanel( id = "maintabs" , 
-        tabPanel(
-          "Header",
-          textOutput("text.header1b"),
-          hr(),
-          DT::dataTableOutput("table.header2")
+
+       tabPanel( "Headers" , 
+#           textOutput("text.header1b"),
+#           hr(),
+	    fluidRow( column( 4 , DT::dataTableOutput("table.header3") ) ,
+	              column( 8 , DT::dataTableOutput("table.header2" ) ) )
         ),
-        tabPanel(
-          "Segments",
-          textOutput("text.segments"),
-          plotOutput("plot.segments", width = "100%", height = "150px"),
-          DT::dataTableOutput("table.segments")
-        ),
-        tabPanel(
-          "Epochs",
-          hr(col = "white"),
-          fluidRow(
-            column(4, textOutput("basic.ecount"), DT::dataTableOutput("epoch.table1")),
-            column(4, textOutput("aligned.ecount"), DT::dataTableOutput("epoch.table2")),
-            column(4, textOutput("selected.ecount"), DT::dataTableOutput("epoch.table3"))
-          )
-        ),
+	
+        tabPanel( "Structure",          
+         tabsetPanel( 
+           tabPanel( "Segments",
+                     textOutput("text.segments"),
+                     plotOutput("plot.segments", width = "100%", height = "150px"),
+                     DT::dataTableOutput("table.segments") ),
+           tabPanel( "Epochs",
+                     hr(col = "white"),
+                     fluidRow(
+                      column(4, textOutput("basic.ecount"), DT::dataTableOutput("epoch.table1")),
+                      column(4, textOutput("aligned.ecount"), DT::dataTableOutput("epoch.table2")),
+                      column(4, textOutput("selected.ecount"), DT::dataTableOutput("epoch.table3")) )
+          ),
+         ),
+	),
         tabPanel(
           "Hypnogram",
           tabsetPanel(
@@ -198,19 +205,21 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
           )
         ),
         tabPanel(
-          "SOAP",
+          "SOAP/POPS",
+        tabsetPanel(
+	 tabPanel("SOAP", 
           br(),
-          fluidRow(
-            column(3, selectInput("soap.ch", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
-            column(1, hr(), actionButton("soap.run", "Run SOAP"))
-          ),
-          plotOutput("plot.soap", width = "100%", height = "125px"),
-          fluidRow(
-            column(6, DT::dataTableOutput("table.soap", width = "95%")),
-            column(6, DT::dataTableOutput("table.soap.stages", width = "95%"))
-          )
+           fluidRow(
+             column(3, selectInput("soap.ch", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
+             column(1, hr(), actionButton("soap.run", "Run SOAP"))
+           ),
+           plotOutput("plot.soap", width = "100%", height = "125px"),
+           fluidRow(
+             column(6, DT::dataTableOutput("table.soap", width = "95%")),
+             column(6, DT::dataTableOutput("table.soap.stages", width = "95%"))
+           )
         ),
-        tabPanel(
+         tabPanel(
           "POPS",
           fluidRow(
             column(
@@ -255,7 +264,8 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
               tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;"))
             )
           )
-        ),
+        ))),
+
         tabPanel(
           "Annots",
           plotOutput("annot.view", width = "100%", height = "175px"),
@@ -265,6 +275,7 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
             tabPanel("Instances", dataTableOutput("annot.table"))
           )
         ),
+
         tabPanel(
           "Signals",
           fluidRow(
@@ -291,6 +302,32 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
             brush = brushOpts(id = "zoom_brush", direction = "x", resetOnNew = F)
           ),
           hr()
+        ),
+
+        tabPanel(
+          "Spectrogram",
+          fluidRow(
+	    column( 2 , selectInput( "mtm.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ),
+	    column( 2 , numericInput("mtm.flwr", label = h5("Lower freq. (Hz)"), min = 0 , max = 256 , value = 0.5 ) ) ,  
+	    column( 2 , numericInput("mtm.fupr", label = h5("Upper freq. (Hz)"), min = 0 , max = 256 , value = 25 ) ) ,
+	    column( 2 , numericInput("mtm.winsor", label = h5("Winsorization"), min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ) ,
+	    column( 2 , hr(col="white"), actionButton("do.mtm", "Run MTM" ) ) ), hr(),
+            plotOutput("mtm.view1", width = "100%", height = "75px", click = "mtm1_click"),
+            plotOutput("mtm.tr12",  width = "100%", height = "25px"),
+	    plotOutput("mtm.view2", width = "100%", height = "75px", click = "mtm2_click"),
+	    plotOutput("mtm.tr23",  width = "100%", height = "25px"),
+	    plotOutput("mtm.view3", width = "100%", height = "75px"),
+	    plotOutput("mtm.view4", width = "100%", height = "75px")          
+        ),
+
+        tabPanel(
+          "Hjorth",
+	    fluidRow( column(1 , HTML('Winsorization:')),
+	              column(2,  numericInput("sigsumm.winsor", label = NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
+	              column(2,  actionButton("do.sigsumm", "Build" ) ) ) , 
+            plotOutput("sigsumm.view1", width = "100%", height = "325px", hover = hoverOpts(id="sigsumm_hover",delay=50,delayType="throttle" ) ),
+            hr(col="white"),
+	    plotOutput("sigsumm.view2", width = "100%", height = "125px"  )
         ),
 
        tabPanel("Manips",
@@ -331,43 +368,31 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
 	            fluidRow(
                      column( 4 , selectInput( "transch" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
                      column( 4 , textInput("transexp", label = h5("Expression") ) ),
-                     column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ) 
-	   ),
-        verbatimTextOutput( "manipout" , placeholder= T ) ,
+                     column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ),
+            tabPanel("Map channels", hr( col="white" ) , 
+                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
+					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
+		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ),
+                  hr( col="white" ) ) , 	   
+           tabPanel("Map annots",  hr( col="white" ) ,
+                  fluidRow( column( 9 , textAreaInput("remaps" , NULL , width = '100%' , height = '250px' , resize='none' ,
+                                        placeholder = "(Enter annotation remappings here, or insert NSRR defaults)" ) )  ,
+                            column( 3 , actionButton("mapanns", "Map") , actionButton( "addnsrr_anns" , "Insert NSRR defaults" ) ) ) ,
+                  DT::dataTableOutput( "annmappings" ) ,
+                  hr( col="white" ) ),
+           ),
+	verbatimTextOutput( "manipout" , placeholder= T ) ,
         tags$head(tags$style("#manipout{color:black; font-size:9px;
                                         overflow-y:scroll; height: 150px; background: ghostwhite;}") ),
         tags$head(tags$style("#reref1{height: 175px; width: 175px; ") ) ,
         tags$head(tags$style("#reref2{height: 175px; width: 175px; ") ) ,
         tags$head(tags$style("#drop{height: 175px; width: 175px; ") ) , 
         tags$head(tags$style("#resample{height: 175px; width: 175px; ") ) 
-       ) , 
-
-        tabPanel("Harmonize",
-          tabsetPanel( 
-            tabPanel("Channels", hr( col="white" ) , 
-                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
-					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
-                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
-		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ),
-                  hr( col="white" ), 
-                  verbatimTextOutput( "mapout" , placeholder= T ) ,
-                  tags$head(tags$style("#mapout{color:black; font-size:9px;
-                                        overflow-y:scroll; height: 200px; background: ghostwhite;}") )
-	   ) , 
-           tabPanel("Annotations",  hr( col="white" ) ,
-                  fluidRow( column( 9 , textAreaInput("remaps" , NULL , width = '100%' , height = '250px' , resize='none' ,
-                                        placeholder = "(Enter annotation remappings here, or insert NSRR defaults)" ) )  ,
-                            column( 3 , actionButton("mapanns", "Map") , actionButton( "addnsrr_anns" , "Insert NSRR defaults" ) ) ) ,
-                  DT::dataTableOutput( "annmappings" ) ,
-                  hr( col="white" ),
-                  verbatimTextOutput( "annmapout" , placeholder= T ) ,
-                  tags$head(tags$style("#annmapout{color:black; font-size:9px;
-                                          overflow-y:scroll; height: 200px; background: ghostwhite;}") )
-	   ))	   
-        ),
+       ),  
 
 
-        tabPanel("Norms",
+      tabPanel("Norms",
            textOutput( "norm.lab" , inline = FALSE), hr(col="white"), 
            fluidRow( column( 2, numericInput("norm.age", label = h5("Age (years)"), min = 0 , max = 88 , value = 40 )  ,
          	               radioButtons("norm.sex", "Sex" , c("Male" = "M" , "Female" = "F" ) ) ,
