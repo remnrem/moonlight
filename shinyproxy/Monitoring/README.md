@@ -9,7 +9,7 @@ tar -xvzf prometheus-2.42.0.linux-amd64.tar.gz
 cd prometheus-2.42.0.linux-amd64
 ```
 Copy and paste the below contents to `prometheus.yml`
-```R
+```python
 # my global config
 global:
   scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
