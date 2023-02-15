@@ -20,7 +20,7 @@
 #
 #  --------------------------------------------------------------------
 
-# source("ui.R"); source("server.R"); shinyApp(shinyUI, shinyServer)
+# source("ui.R"); source("server.R"); shinyApp(ui,server)
 
 library(shiny)
 library(luna)
@@ -47,7 +47,6 @@ pops.versions <- c("20-Jan-2023", "20-Dec-2022")
 # local mode: is default (look to 'host') unless running as server
 cat( "server mode MOONLIGHT_SERVER_MODE = [" , Sys.getenv("MOONLIGHT_SERVER_MODE")  , "]\n" , sep="" )
 local.mode <- Sys.getenv("MOONLIGHT_SERVER_MODE") == "" 
-local.mode <- T
 
 # canonical file
 canonical.sigs <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
