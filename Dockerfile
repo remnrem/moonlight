@@ -94,7 +94,6 @@ RUN mkdir /root/moon
 COPY ui.R server.R /root/moon
 COPY pops /root/moon/pops
 COPY data /root/moon/data
-COPY Rprofile.site /usr/local/lib/R/etc/
 
 ENV _R_SHLIB_STRIP_=true
 COPY --from=builder /Programme/luna-base/luna /usr/local/bin/luna
@@ -104,6 +103,7 @@ COPY --from=builder /Programme/luna-base/fixrows /usr/local/bin/fixrows
 COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/local/lib
 COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/lib
 COPY --from=builder /usr/local/lib/R /usr/local/lib/R
+COPY Rprofile.site /usr/local/lib/R/etc/
 EXPOSE 3838
 CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]
 

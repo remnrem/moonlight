@@ -155,17 +155,16 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
       ),
       plotOutput("mask.plot", width = "100%", height = "20px"),
       div(style = "margin-top: 10px"),
+
       tabsetPanel( id = "maintabs" , 
 
        tabPanel( "Headers" , 
-#           textOutput("text.header1b"),
-#           hr(),
 	    fluidRow( column( 4 , DT::dataTableOutput("table.header3") ) ,
 	              column( 8 , DT::dataTableOutput("table.header2" ) ) )
         ),
 	
         tabPanel( "Structure",          
-         tabsetPanel( 
+         tabsetPanel( id="tab1" , 
            tabPanel( "Segments",
                      textOutput("text.segments"),
                      plotOutput("plot.segments", width = "100%", height = "150px"),
@@ -179,6 +178,7 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
           ),
          ),
 	),
+	
         tabPanel(
           "Hypnogram",
           tabsetPanel(
