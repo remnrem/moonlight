@@ -74,7 +74,7 @@ pal10 <- c(
 # ------------------------------------------------------------
 # Define UI
 
-shinyUI <- fluidPage( # theme = shinytheme("yeti"),
+ui <- fluidPage( # theme = shinytheme("yeti"),
 
   # App title ----
   #  titlePanel( h3( "Moonlight/Luna" ) ),
@@ -156,9 +156,8 @@ shinyUI <- fluidPage( # theme = shinytheme("yeti"),
       plotOutput("mask.plot", width = "100%", height = "20px"),
       div(style = "margin-top: 10px"),
 
-      tabsetPanel( id = "maintabs" , 
-
-       tabPanel( "Headers" , 
+   tabsetPanel( id = "maintabs" ,
+       tabPanel( "Headers" ,
 	    fluidRow( column( 4 , DT::dataTableOutput("table.header3") ) ,
 	              column( 8 , DT::dataTableOutput("table.header2" ) ) )
         ),

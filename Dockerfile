@@ -1,5 +1,4 @@
-
-FROM rocker/r-ver:4.1.0 AS builder
+FROM rocker/r-ver:4.2.1 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -22,8 +21,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir /Programme
-RUN mkdir /root/moon
 WORKDIR /Programme
 
 ENV _R_SHLIB_STRIP_=true
@@ -49,6 +46,7 @@ RUN install2.r --error --skipinstalled \
     aws.s3 \
     shinybusy \
     shinythemes
+COPY Rprofile.site /usr/local/lib/R/etc/
 
 # Luna
 RUN git clone https://github.com/remnrem/luna-base.git \
@@ -67,7 +65,7 @@ RUN cp LightGBM/lib_lightgbm.so /usr/local/lib/ \
  && LGBM=1 LGBM_PATH=/Programme/LightGBM/ R CMD INSTALL luna
 
 #------------------------------- Multi-stage build (keeps the image size down)-------------------------------------------
-FROM rocker/r-ver:4.1.0
+FROM rocker/r-ver:4.2.1
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
