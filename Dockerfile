@@ -1,5 +1,7 @@
 FROM rocker/r-ver:4.2.1 AS builder
 
+RUN echo "Creating builder image"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
@@ -66,6 +68,9 @@ RUN cp LightGBM/lib_lightgbm.so /usr/local/lib/ \
 
 #------------------------------- Multi-stage build (keeps the image size down)-------------------------------------------
 FROM rocker/r-ver:4.2.1
+
+RUN echo "Creating runtime image"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
@@ -92,6 +97,8 @@ RUN mkdir /root/moon
 COPY ui.R server.R /root/moon
 COPY pops /root/moon/pops
 COPY data /root/moon/data
+
+USER shiny
 
 ENV _R_SHLIB_STRIP_=true
 COPY --from=builder /Programme/luna-base/luna /usr/local/bin/luna
