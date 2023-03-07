@@ -73,7 +73,7 @@ server <- function(input, output, session ) {
 # ------------------------------------------------------------
 # shinyFiles reading from host filesystem
 
-roots <- c( data = "/data" , wd = '.' ) 
+roots <- c( data = "/data" , wd = '/Users/smp37/' )
 
 shinyFileChoose(input, 'lfiles',
                 roots = roots, 
@@ -85,7 +85,8 @@ observeEvent( input$lfiles , {
    df <- parseFilePaths( roots , input$lfiles )
    df$name <- as.character( df$name )
    df$datapath <- as.character( df$datapath )
-   
+ print( df )
+ 
   # set to null
   values$file.details <- NULL
   edf.name <- edf.path <- NULL
@@ -98,6 +99,9 @@ observeEvent( input$lfiles , {
     edf.path <- df$datapath[idx[1]]
   }
 
+  cat( "edf.name" , edf.name , "\n" )
+  cat( "edf.path" , edf.path , "\n" )
+  
   # 1 or more annotation files
   idx <- c(
      grep(".xml", ignore.case = T, df$name),
@@ -178,6 +182,15 @@ load.data <- observeEvent( values$file.details , {
    values$mtm1 <- NULL
    values$mtm2 <- NULL
    values$mtm3 <- NULL
+   values$exe.mat <- NULL
+   values$exe.ts <- NULL
+   values$exe.e <- NULL
+   values$exe.k <- NULL
+   values$exe.e1 <- NULL
+   values$exe.e2 <- NULL
+   values$exe.c1 <- NULL
+   values$exe.c2 <- NULL
+   values$exe.ylim <- NULL
    values$sigsumm <- NULL
    values$sigsumm2 <- NULL
    values$sigsumm2.label <- NULL
@@ -207,6 +220,9 @@ load.data <- observeEvent( values$file.details , {
 # mtm
    updateSelectInput(session, "mtm.ch", choices = "" , label = NULL , selected = 0 )
 
+# exe
+   updateSelectInput(session, "exe.ch", choices = "" , label = NULL , selected = 0 )
+   
   # manips
    updateSelectInput( session, "reref1",   choices = "" , label = NULL , selected = 0 )
    updateSelectInput( session, "reref2",   choices = "" , label = NULL , selected = 0 )
@@ -219,6 +235,8 @@ load.data <- observeEvent( values$file.details , {
    clear_sel_inst()
    updateSelectInput( session, "psd.ch", choices = "" , label = NULL , selected = 0 ) 
    updateSelectInput( session, "soap.ch", choices = "" , label = NULL , selected = 0 )
+
+   updateSelectInput( session, "mask.annots", choices = "" , label = NULL , selected = 0 )
 
    updateSelectInput(session, "pops.m1.eeg1", choices = "" , label = NULL , selected = 0)
    updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
@@ -478,6 +496,7 @@ observeEvent( input$files , {
       updateSelectInput( session, "copyold",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )    
       updateSelectInput( session, "renameold", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
       updateSelectInput( session, "filter",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
+      updateSelectInput( session, "mask.annots", choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
 
       # others
 
@@ -491,6 +510,7 @@ observeEvent( input$files , {
       updateSelectInput( session, "soap.ch", choices = s50, label = NULL , selected = 0 )
 
       updateSelectInput( session, "mtm.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "exe.ch", label = NULL , choices = values$opt[[ "chs" ]] , selected = 0 )
 
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
@@ -2206,6 +2226,41 @@ print( dim( values$opt[["hypno.stats"]] ) )
   })
 
 
+  observeEvent(input$domask, {
+    req( c( input$mask.annots, input$mask.expr) )
+    na <- length( input$mask.annots )
+    has.expr <- gsub( " ", "" , input$mask.expr ) != "" 
+    if ( na != 0 && has.expr )
+    {
+     values$manipout <- " *** cannot specify both annotations and an expression together *** "
+     return
+   }
+
+   if ( na == 1 )
+   {
+    if ( input$mask.inc == "1" ) cmd <- paste("MASK ifnot=" , input$mask.annots , sep="" )
+    else cmd <- paste("MASK if=" , input$mask.annots , sep="" )    
+   }
+   else if ( na > 1 )
+   {
+     if ( input$mask.inc == "1" ) cmd <- paste( "MASK all & MASK unmask-if=" , paste( input$mask.annots, collapse="," ) , sep="" )
+     else cmd <- paste( "MASK mask-if=" , paste( input$mask.annots, collapse="," ) , sep="" )
+   }
+   else
+   {
+    cmd <- paste( "MASK" , input$mask.expr )
+    if ( input$mask.inc == "0" ) cmd <- paste( cmd , "& MASK flip" )
+   }
+   values$manipout <- capture.output(leval(cmd))
+   update()
+  })
+
+
+  observeEvent(input$clearmask, {
+    req(values$hasdata)
+    leval("MASK clear")
+    update()
+  })
 
 
   # ------------------------------------------------------------
@@ -2266,7 +2321,7 @@ print( dim( values$opt[["hypno.stats"]] ) )
   # PSD, w/ user-defined total power 
   k1 <- leval( paste( "EPOCH align & STAGE & PSD epoch total=0.5-20 sig=" , sigs , sep="" ) ) 
   ss <- k1$STAGE$E[, c("E","STAGE") ]
-
+  print(k1)
   alpha <- theta <- sigma <- delta <- data.frame()
 
   alpha <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
@@ -2313,7 +2368,7 @@ print( dim( values$opt[["hypno.stats"]] ) )
 
 
 fnorm.plot1 <- function( d , val, age , sex , label ) {
-
+ cat("age",age,"\n")
  yage <- d$Age_years
  ageega <- c( yage, rev(yage) )
  # reference range:
@@ -2333,6 +2388,7 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
  }
 
  abline( h = val , col = ifelse( sex == "M" , "blue" , "red" ) , lwd=0.5 )
+ cat("plot" , age , val , sex , "\n" )
  points( age , val , col = ifelse( sex == "M" , "blue" , "red" ) , cex=2 , pch=20 )
  
 }
@@ -2621,6 +2677,135 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
       }
     }
   })
+
+
+# ------------------------------------------------------------
+# ExE explorer
+
+observeEvent( input$do.exe , {
+ req( values$hasedf , input$exe.ch )
+
+# temp file for matrix
+exe.matfile <- tempfile()
+
+cmd <- paste( "EXE sig=" , input$exe.ch , " mat=", exe.matfile , " representative=" , input$exe.rep , " m=" , input$exe.m , " t=" , input$exe.t , sep="" )
+cat( "cmd [" , cmd , "]\n" )
+
+k <- leval( cmd )
+
+# save epoch/clsts
+values$exe.e <- k$EXE$E
+values$exe.k <- k$EXE$K
+#print( values$exe.e  )
+#print( values$exe.k  )
+
+# get matrix, and flip Y
+values$exe.mat <- as.matrix( read.table( exe.matfile , header=F ) ) 
+values$exe.mat <- t(values$exe.mat[ (dim(values$exe.mat)[1]:1) , ] )
+
+# clean temp
+file.remove(exe.matfile)
+})
+
+
+# mini stages
+output$exe.hypno1 <- renderPlot({
+    req(values$hasdata,values$hasstaging, values$exe.mat )
+
+    par(mar = c(0, 0, 0, 0))
+    # masked out
+    inc <- values$opt[["ss"]]$E %in% values$opt[["included"]]
+
+    plot(values$opt[["ss"]]$E[inc],
+        rep(0.5, length(values$opt[["ss"]]$E[inc])),
+        col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
+	axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
+      )
+})
+
+# mini stages
+output$exe.hypno2 <- renderPlot({
+    req(values$hasdata,values$hasstaging, values$exe.mat )
+
+    par(mar = c(0, 0, 0, 0))
+    # masked out
+    inc <- values$opt[["ss"]]$E %in% values$opt[["included"]]
+
+    plot(values$opt[["ss"]]$E[inc],
+        rep(0.5, length(values$opt[["ss"]]$E[inc])),
+        col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
+	axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
+      )
+})
+
+# matrix
+output$exe.mat <- renderPlot({
+  req( values$exe.mat )
+  par(mar=c(0,0,0,0))
+  image( lwin( values$exe.mat , input$exe.win ), useRaster=T , col = rev(lturbo(100)))
+})
+
+# splits
+output$exe.clst <- renderPlot({
+  req( values$exe.e , values$exe.k , input$exe.ch )
+  e <- values$exe.e
+  d <- values$exe.k
+  ne <- dim(e)[1]
+  n  <- dim(d)[1]
+  ks <- d$K
+  
+  # extract clusters
+  dt <- list()
+  for (k in 1:n) {
+    ekey <- d$E[d$K==ks[k]]
+    dt[[ k ] ] <- ldata( e = ekey , chs = input$exe.ch )[,4]
+  }
+  ylim <- range( unlist( dt ) )
+
+  par(mfcol=c(2*n,1), mar=c(0,0,0,0) )
+  for (ki in 1:n) {
+    k <- ks[ki]
+    ekey <- d$E[d$K==k]  
+    edat <- e$E[e$K==k]
+    plot( 1:ne , rep(0.5,ne), pch="|" , col = "#E0E0E0" ,axes=F , ylim=c(0,1.5) , xaxs="i" )
+    points( edat , rep(0.5,length(edat)), col= ki , pch="|" )
+    points( ekey , 0.5, col="black"    , pch=12 , cex=2 )
+    ylim1 <- range( dt[[ki] ] , na.rm=T)
+    xn <- length(dt[[ki] ])
+   xin <- -xn*0.02
+   plot( dt[[ki] ] , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , ylim = ylim1 , xlim=c(xin,xn ) , xaxs="i" )
+   ylim2 <- c( (ylim1[1]-ylim[1] ) / ( ylim[2] - ylim[1] ) , (ylim1[2]-ylim[1] ) / ( ylim[2] - ylim[1] ) )
+   ylim3 <- ylim1[1] + ( ylim2 * ( ylim1[2] - ylim1[1] ) )
+   lines( c(xin,xin) , ylim1 , col="black" , lwd=0.5 ) # full bar
+   lines( c(xin,xin) , ylim3 , col="red"   , lwd=2 ) # this range
+}
+  
+})
+
+output$exe.view1 <- renderPlot({
+  req( values$exe.e1 , values$exe.c1, values$exe.mat , input$exe.ch )
+  par(mar=c(0,0,0,0))
+  plot( values$exe.e1 , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , xaxs="i" , col = values$exe.c1 , ylim = values$exe.ylim )
+})
+
+output$exe.view2 <- renderPlot({
+  req( values$exe.e2 , values$exe.c2, values$exe.mat , input$exe.ch )
+  par(mar=c(0,0,0,0))
+  plot( values$exe.e2 , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , xaxs="i" , col = values$exe.c2 , ylim = values$exe.ylim )
+})
+
+
+observeEvent(input$exe_hover, {
+#  cat( "input$exe_hover:" , input$exe_hover$x , input$exe_hover$y , "\n" )
+  ne <- values$opt[["ne"]]
+  e1 <- min( max( 1 , 1 + floor( input$exe_hover$x * ne ) ) , ne )
+  e2 <- min( max( 1 , 1 + floor( ( 1.0 - input$exe_hover$y ) * ne ) ) , ne ) 
+  values$exe.e1 <- ldata( e = e1 , chs = input$exe.ch )[,4]
+  values$exe.e2 <- ldata( e = e2 , chs = input$exe.ch )[,4]
+  values$exe.c1 <- values$exe.e$K[ values$exe.e$E == e1 ]
+  values$exe.c2 <- values$exe.e$K[ values$exe.e$E == e2 ]
+  values$exe.ylim <- range( c( values$exe.e1 , values$exe.e2 ) ) 
+})
 
 
 
@@ -2916,6 +3101,7 @@ observeEvent( input$do.sigsumm , {
  chs <- unique( k$SIGSTATS$CH$CH )
  cat("CHS",chs,"\n")
  ns <- length(chs)
+ k$SIGSTATS$CH_E$H1[ k$SIGSTATS$CH_E$H1 == 0 ] <- NA
  k$SIGSTATS$CH_E$H1 <- log( k$SIGSTATS$CH_E$H1 ) 
  for (ch in chs)
   values$sigsumm[[ ch ]] <- k$SIGSTATS$CH_E[ k$SIGSTATS$CH_E$CH == ch , c("E","H1","H2","H3" ) ]

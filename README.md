@@ -12,8 +12,8 @@
 ```
 
 ```
- docker run --rm -it -p 3838:3838 -v=.:/data/ remnrem/moonlight:latest
- docker run --rm -it -p 3838:3838 -v=.:/data/ moonlight1 
+ docker run --rm -it -p 3838:3838 -v=/Users/smp37/nap-test2/:/data/ remnrem/moonlight:latest
+ docker run --rm -it -p 3838:3838 -v=.:/data/ moonlight1
 ```
 ## TODO / Known issues
 

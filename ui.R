@@ -302,31 +302,53 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
           hr()
         ),
 
-        tabPanel(
-          "Spectrogram",
-          fluidRow(
-	    column( 2 , selectInput( "mtm.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ),
-	    column( 2 , numericInput("mtm.flwr", label = h5("Lower freq. (Hz)"), min = 0 , max = 256 , value = 0.5 ) ) ,  
-	    column( 2 , numericInput("mtm.fupr", label = h5("Upper freq. (Hz)"), min = 0 , max = 256 , value = 25 ) ) ,
-	    column( 2 , numericInput("mtm.winsor", label = h5("Winsorization"), min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ) ,
-	    column( 2 , hr(col="white"), actionButton("do.mtm", "Run MTM" ) ) ), hr(),
-            plotOutput("mtm.view1", width = "100%", height = "75px", click = "mtm1_click"),
-            plotOutput("mtm.tr12",  width = "100%", height = "25px"),
-	    plotOutput("mtm.view2", width = "100%", height = "75px", click = "mtm2_click"),
-	    plotOutput("mtm.tr23",  width = "100%", height = "25px"),
-	    plotOutput("mtm.view3", width = "100%", height = "75px"),
-	    plotOutput("mtm.view4", width = "100%", height = "75px")          
-        ),
+        tabPanel( "Time/freq" , 
+          tabsetPanel( 
+           tabPanel(
+            "Spectrogram",
+            fluidRow(
+	     column( 2 , selectInput( "mtm.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ),
+	     column( 2 , numericInput("mtm.flwr", label = h5("Lower freq. (Hz)"), min = 0 , max = 256 , value = 0.5 ) ) ,  
+	     column( 2 , numericInput("mtm.fupr", label = h5("Upper freq. (Hz)"), min = 0 , max = 256 , value = 25 ) ) ,
+	     column( 2 , numericInput("mtm.winsor", label = h5("Winsorization"), min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ) ,
+	     column( 2 , hr(col="white"), actionButton("do.mtm", "Run MTM" ) ) ), hr(),
+             plotOutput("mtm.view1", width = "100%", height = "75px", click = "mtm1_click"),
+             plotOutput("mtm.tr12",  width = "100%", height = "25px"),
+	     plotOutput("mtm.view2", width = "100%", height = "75px", click = "mtm2_click"),
+	     plotOutput("mtm.tr23",  width = "100%", height = "25px"),
+	     plotOutput("mtm.view3", width = "100%", height = "75px"),
+	     plotOutput("mtm.view4", width = "100%", height = "75px")          
+         ),
 
-        tabPanel(
-          "Hjorth",
-	    fluidRow( column(1 , HTML('Winsorization:')),
-	              column(2,  numericInput("sigsumm.winsor", label = NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
+         tabPanel(
+           "Hjorth",
+ 	    fluidRow( column(1 , HTML('Winsorization:')),
+ 	              column(2,  numericInput("sigsumm.winsor", label = NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
 	              column(2,  actionButton("do.sigsumm", "Build" ) ) ) , 
-            plotOutput("sigsumm.view1", width = "100%", height = "325px", hover = hoverOpts(id="sigsumm_hover",delay=50,delayType="throttle" ) ),
+            plotOutput("sigsumm.view1", width = "100%", height = "325px", hover = hoverOpts(id="sigsumm_hover"  ) ),
             hr(col="white"),
 	    plotOutput("sigsumm.view2", width = "100%", height = "125px"  )
         ),
+
+        tabPanel(
+          "ExE",
+            fluidRow( column( 2, selectInput( "exe.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ) ,
+                      column( 2, numericInput("exe.m", label = h5("m"), NULL, min = 3 , max = 7 , value = 5 , step=1 ) ),
+	              column( 2, numericInput("exe.t", label = h5("t"), NULL, min = 1 , max = 20 , value = 1 , step=1 ) ),
+		      column( 2, numericInput("exe.rep", label = h5("Splits"), NULL, min = 1 , max = 20 , value = 5 , step=1 ) ),
+		      column( 2, numericInput("exe.win", label = h5("Winsorization"), NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
+		      column( 2 , hr(col="white"), actionButton("do.exe", "Run ExE" ) ) ), hr() ,
+             fluidRow( column(6, plotOutput("exe.view1", width = "100%", height = "75px" ) ) ,
+	               column(6, plotOutput("exe.view2", width = "100%", height = "75px" ) ) ), 
+             fluidRow( column( 6 , plotOutput("exe.hypno1", width = "100%", height="30px"),
+	                           plotOutput("exe.mat", width = "100%", height = "500px" , hover = hoverOpts(id="exe_hover" ) ) ) , 
+                       column( 6 , plotOutput("exe.hypno2", width = "100%", height="30px"),
+		                   plotOutput("exe.clst", width = "100%", height = "500px") ) ) ,
+		       hr(col="white"),       		       
+          )
+	 )
+	),
+
 
        tabPanel("Manips",
          tabsetPanel(
@@ -367,7 +389,13 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                      column( 4 , selectInput( "transch" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
                      column( 4 , textInput("transexp", label = h5("Expression") ) ),
                      column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ),
-            tabPanel("Map channels", hr( col="white" ) , 
+           tabPanel("Mask" ,
+                    fluidRow(
+                     column( 2 , radioButtons( "mask.inc", "Mask" , c("Include" = "1" , "Exclude" = "0" ) ) ) ,
+		     column( 4 , selectInput( "mask.annots" , label = h5("Annotations"), choices = list(), multiple=T, selectize=F ) ) ,
+                     column( 4 , textInput( "mask.expr", label = h5("Expression") ) ),
+                     column( 2 , hr(col="white"), actionButton("domask", "Mask" ) , actionButton("clearmask", "Clear mask" ) ) ) ),
+           tabPanel("Map channels", hr( col="white" ) ,	    
                   fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
 					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
                             column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
