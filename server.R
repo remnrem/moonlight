@@ -345,6 +345,8 @@ observeEvent( input$files , {
 
     values$opt[["init.epochs"]] <- ret$EPOCH$E
     values$opt[["ne"]] <- dim(ret$EPOCH$E)[1]
+    values$opt[["init.secs"]] <- max(ret$EPOCH$E$STOP)
+
     values$opt[["init.segidx"]] <- ret$SEGMENTS$SEG[, c("START", "STOP")]
     session$resetBrush("hypno_brush")
 
@@ -406,11 +408,13 @@ observeEvent( input$files , {
 
   update <- function() {
     isolate({
-      cat("in update()\n...")
+      cat("updating()\n...")
 
       # get HEADERS/ANNOTS (raw eppochs)
       ret <- leval("SEGMENTS & HEADERS & ANNOTS & DUMP-MASK")
       # print( ret$HEADERS$BL  )
+
+      # has a mask been set?
 
       # check records set?
       if (is.null(ret$HEADERS$BL)) {
@@ -447,7 +451,7 @@ observeEvent( input$files , {
       values$opt[["curr.segments"]]$STOP <- round(values$opt[["curr.segments"]]$STOP, 2)
       values$opt[["curr.segments"]]$DUR_SEC <- round(values$opt[["curr.segments"]]$DUR_SEC, 2)
       values$opt[["curr.segments"]]$DUR_MIN <- round(values$opt[["curr.segments"]]$DUR_MIN, 2)
-      names(values$opt[["curr.segments"]]) <- c("Segment", "Start", "Stop", "Duration(m)", "Duration(s)", "Start(s)", "Stop(s)")
+      names(values$opt[["curr.segments"]]) <- c("Segment", "Start", "Stop", "Duration (m)", "Duration (s)", "Start(s)", "Stop(s)")
 
       # Channels
       values$opt[["chs"]] <- ret$HEADERS$CH$CH
@@ -516,9 +520,9 @@ observeEvent( input$files , {
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = s50, selected = 0)
 
-      updateSelectInput( session, "norm.eegF", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
-      updateSelectInput( session, "norm.eegC", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
-      updateSelectInput( session, "norm.eegO", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "norm.eegF", label = NULL , choices = c("--none--",s50), selected = 0 )# ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput( session, "norm.eegC", label = NULL , choices = c("--none--",s50), selected = 0 )
+      updateSelectInput( session, "norm.eegO", label = NULL , choices = c("--none--",s50), selected = 0 )
 
       # Get mask
       values$opt[["unmasked"]] <- ret$DUMP_MASK$E$E[ret$DUMP_MASK$E$EMASK == 0]
@@ -902,25 +906,25 @@ observeEvent( input$files , {
       ncol = 2, byrow = T
     ))
 
-cat("ST2\n")
-    print( values$opt[["hypno.stats"]] )
-    print( dim( values$opt[["hypno.stats"]] ) ) 
+#cat("ST2\n")
+#    print( values$opt[["hypno.stats"]] )
+#    print( dim( values$opt[["hypno.stats"]] ) ) 
     
     # spacers
     values$opt[["hypno.stats"]][, " "] <- NA
     values$opt[["hypno.stats"]][, "  "] <- NA
     values$opt[["hypno.stats"]][, "   "] <- NA
 
-    cat("ST2a\n")
+#    cat("ST2a\n")
 
-print( dim(m))
-print(m)
-print( dim( values$opt[["hypno.stats"]] ) )
+#print( dim(m))
+#print(m)
+#print( dim( values$opt[["hypno.stats"]] ) )
 
     # add in values
     m$VALUE <- round(as.numeric(values$opt[["hypno.stats"]][, m[, 1]]), 3)
 
-    cat("ST3\n")
+#   cat("ST3\n")
     
     DT::datatable(m,
       options = list(
@@ -980,9 +984,10 @@ print( dim( values$opt[["hypno.stats"]] ) )
 
     dt <- values$opt[["hypno.stages"]]
     dt <- dt[dt$SS %in% c("?", "N1", "N2", "N3", "R", "S", "W", "WASO"), ]
-    dt <- dt[, c("SS", "MINS", "PCT", "BOUT_MD", "BOUT_N")]
+    dt$EDUR <- as.integer( dt$MINS * 2 ) 
+    dt <- dt[, c("SS", "MINS", "EDUR", "PCT", "BOUT_MD", "BOUT_N")]
     dt$PCT <- round(100 * dt$PCT, 2)
-    names(dt) <- c("Stage", "Duration(m)", "Duration(%)", "Median-bout(m)", "N-bouts")
+    names(dt) <- c("Stage", "Duration (m)", "Duration (e)", "Duration (%)", "Median-bout(m)", "N-bouts")
     DT::datatable(dt,
       options = list(
         scrollY = "300px",
@@ -1054,8 +1059,8 @@ print( dim( values$opt[["hypno.stats"]] ) )
      ret <- leval(cmd)
      par(mar = c(0, 0, 0, 0))
      ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
-     df <- merge( ret$PSD$CH_E_F , ttable , by="E" , all.x = T ) 
-     lpointmap(df$START, df$F, df$PSD, xlim=c(0,max(df$START)), xs=30, ys=0.25, win = 0.05)
+     df <- merge( ret$PSD$CH_E_F , ttable , by="E" , all.x = T )     
+     lpointmap(df$START, df$F, df$PSD, xlim=c(0,values$opt[["init.secs"]]), xs=30, ys=0.25, win = 0.05)
     })
   })
 
@@ -1072,6 +1077,9 @@ print( dim( values$opt[["hypno.stats"]] ) )
     col[inc] <- "ivory3"
     col[unmsk] <- "orange2"
     mx <- max(df$START)
+    # any masked?
+    values$opt[[ "maskset" ]] <- any( ! col == "orange2" )
+#    cat("mask-set",values$opt[[ "maskset" ]],"\n")
     par(mar = c(0, 0, 0, 0))
     plot( df$START, 
       rep(2, dim(df)[1] ),
@@ -1257,11 +1265,17 @@ print( dim( values$opt[["hypno.stats"]] ) )
   #
 
   observeEvent(input$soap.run, {
-    req(values$hasdata, input$soap.ch)
+    req(values$hasdata, input$soap.ch , values$opt[[ "maskset" ]] == F )
     req(length(unique(values$opt[["ss"]]$STAGE[values$opt[["ss"]]$E %in% values$opt[["included"]]])) >= 2)
-    cmd <- paste("SOAP force-reload epoch sig=", input$soap.ch, sep = "")
-    cat("cmd|", cmd, "\n")
+
+    # always make a copy, i.e. so as not to change SR for original
+    if ( ! paste( input$soap.ch , "SOAP" , sep="_" ) %in% values$opt[[ "chs" ]] ) 
+      leval( paste( "COPY sig=" , input$soap.ch , " tag=SOAP" , sep="" ) )
+
+    # run SOAP on the copy, XXX_SOAP
+    cmd <- paste("SOAP force-reload epoch sig=", input$soap.ch, "_SOAP lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")
     ret <- leval(cmd)
+
     values$soap[["soap"]] <- ret$SOAP$BL
     values$soap[["soap.stages"]] <- ret$SOAP$SS
     df <- ret$SOAP$E
@@ -1273,6 +1287,10 @@ print( dim( values$opt[["hypno.stats"]] ) )
     df <- df[, c("E", "PRED", "PRIOR", "PP_N1", "PP_N2", "PP_N3", "PP_R", "PP_W")]
     df$FLAG <- 0
     values$soap[["soap.epochs"]] <- df
+
+    # update chs
+    update()
+
   })
 
 
@@ -1343,109 +1361,93 @@ print( dim( values$opt[["hypno.stats"]] ) )
   # POPS
 
   observeEvent(input$pops.run, {
-    req(values$hasdata)
+    req(values$hasdata, values$opt[[ "maskset" ]] == F )
 
     equiv_mode <- F
 
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
 
-      # need to create input$pops.m1.eeg1_NORM (ZEN) if it does not already exist
+      fstr <- ifelse( input$pops.filter , "FLT" , "CPY" )
+      
+      # need to create (if they do not already exist) 
+      #   CEN = XXX_FLT  [ or _CPY if just a copy ] 
+      #   ZEN = XXX_FLT_NORM  [ or _CPY_NORM is no filtering done ] 
+      # where XXX = input$pops.m1.eeg1
+
+      # we will always make a copy of cen, as we may have to resample also
+      # but we may not need to filter
       cen <- input$pops.m1.eeg1
-      cat("cen = [", cen, "]\n")
+      flt <- paste( cen , fstr , sep="_" )
+      zen <- paste( cen , fstr , "NORM" , sep="_" )
 
-      # need to bandpass filter?
-      #  (i.e. as per original construction of s2 model)
-
-     if ( input$pops.filter )
-     {
-       cat( "BP filtering" , cen , "\n" )
-       leval( paste( "COPY sig=" , cen , " tag=FLT" , sep="" ) )
-       cen <- paste( cen, "FLT" , sep="_" )
-       leval( paste( "FILTER sig=" , cen , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
+      # need to make XXX_FLT? 
+      if ( ! flt %in% values$opt[["chs"]] ) {
+        # copy 
+        leval( paste( "COPY sig=" , cen , " tag=" , fstr , sep="" ) )
+	# optionally, filter
+	if ( input$pops.filter )
+          leval( paste( "FILTER sig=" , flt , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
      }
 
-      # need to make normalized version too? check if CEN_NORM already exists; if not, make
-      zen <- paste(cen, "_NORM", sep = "")
-      if (!zen %in% values$opt[["chs"]]) {
-        cat("making", zen, "from ", cen, "\n")
-        # copy the channel --> X_NORM
-        leval(paste("COPY sig=", cen, " tag=NORM", sep = ""))
-        # same processing as per
-        leval(paste("ROBUST-NORM sig=", zen, " epoch winsor=0.005 second-norm=T", sep = ""))
+     # need to make XXX_FLT_NORM? 
+     # (done from the FLT version)
+     if (!zen %in% values$opt[["chs"]]) {
+       leval(paste("COPY sig=", flt, " tag=NORM", sep = ""))
+       leval(paste("ROBUST-NORM sig=", zen, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
       # attach the library (s2)
       pops.lib <- pops.libs[1]
-      aliases <- paste("alias=CEN,ZEN|", cen, ",", zen, sep = "")
+      aliases <- paste("alias=CEN,ZEN|", flt, ",", zen, sep = "")
     }
 
     # model 2 : s2 allowing for two central channels (equiv. mode)
     else if (input$popstabs == "M2") {
       req(input$pops.m2.eeg1, input$pops.m2.eeg2)
 
-      # need to create input$pops.m1.eeg1_NORM (ZEN) if it does not already exist
+      fstr <- ifelse( input$pops.filter , "FLT" , "CPY" )
+      
       cen1 <- input$pops.m2.eeg1
+      flt1 <- paste( cen1 , fstr , sep="_" )
+      zen1 <- paste( cen1 , fstr, "NORM" , sep="_" )
 
-      # need to bandpass filter?
-      #  (i.e. as per original construction of s2 model)
-
-      if (input$pops.filter) {
-        cat("BP filtering", cen1, "\n")
-        leval(paste("COPY sig=", cen1, " tag=FLT", sep = ""))
-        cen1 <- paste(cen1, "FLT", sep = "_")
-        leval(paste("FILTER sig=", cen1, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
-      }
-
-      # need to make normalized version too? check if CEN_NORM already exists; if not, make
-      zen1 <- paste(cen1, "_NORM", sep = "")
-      if (!zen1 %in% values$opt[["chs"]]) {
-        cat("making", zen1, "from ", cen1, "\n")
-        # copy the channel --> X_NORM
-        leval(paste("COPY sig=", cen1, " tag=NORM", sep = ""))
-        # same processing as per
-        leval(paste("ROBUST-NORM sig=", zen1, " epoch winsor=0.005 second-norm=T", sep = ""))
-      }
-
-      # second channel
-      # need to create input$pops.m1.eeg2_NORM (ZEN) if it does not already exist
       cen2 <- input$pops.m2.eeg2
+      flt2 <- paste( cen2 , fstr , sep="_" )
+      zen2 <- paste( cen2 , fstr, "NORM" , sep="_" )
 
-      # need to bandpass filter?
-      #  (i.e. as per original construction of s2 model)
-
-      if (input$pops.filter) {
-        cat("BP filtering", cen2, "\n")
-        leval(paste("COPY sig=", cen2, " tag=FLT", sep = ""))
-        cen2 <- paste(cen2, "FLT", sep = "_")
-        leval(paste("FILTER sig=", cen2, " bandpass=0.3,35 tw=0.5 ripple=0.02 fft", sep = ""))
+      # need to make XXX_FLT? (1, 2)
+      if ( ! flt1 %in% values$opt[["chs"]] ) {
+        leval( paste( "COPY sig=" , cen1 , " tag=" , fstr , sep="" ) )
+	if ( input$pops.filter ) leval( paste( "FILTER sig=" , flt1 , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
       }
 
-      # need to make normalized version too? check if CEN_NORM already exists; if not, make
-      zen2 <- paste(cen2, "_NORM", sep = "")
-      if (!zen2 %in% values$opt[["chs"]]) {
-        cat("making", zen2, "from ", cen2, "\n")
-        # copy the channel --> X_NORM
-        leval(paste("COPY sig=", cen2, " tag=NORM", sep = ""))
-        # same processing as per
-        leval(paste("ROBUST-NORM sig=", zen2, " epoch winsor=0.005 second-norm=T", sep = ""))
+      if ( ! flt2 %in% values$opt[["chs"]] ) {
+        leval( paste( "COPY sig=" , cen2 , " tag=" , fstr , sep="" ) )
+	if ( input$pops.filter ) leval( paste( "FILTER sig=" , flt2 , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
       }
 
+     # need to make XXX_FLT_NORM? (1, 2)
+     if (!zen1 %in% values$opt[["chs"]]) {
+       leval(paste("COPY sig=", flt1, " tag=NORM", sep = ""))
+       leval(paste("ROBUST-NORM sig=", zen1, " epoch winsor=0.005 second-norm=T", sep = ""))
+      }
+
+     if (!zen2 %in% values$opt[["chs"]]) {
+       leval(paste("COPY sig=", flt2, " tag=NORM", sep = ""))
+       leval(paste("ROBUST-NORM sig=", zen2, " epoch winsor=0.005 second-norm=T", sep = ""))
+      }
+ 
       equiv_mode <- T
 
       pops.lib <- pops.libs[2]
 
       # add in equiv command as well as aliases
-      aliases <- paste("alias=CEN,ZEN|", cen1, ",", zen1,
-        " equiv=CEN,ZEN|", cen2, ",", zen2,
+      aliases <- paste("alias=CEN,ZEN|", flt1, ",", zen1,
+        " equiv=CEN,ZEN|", flt2, ",", zen2,
         sep = ""
       )
     }
-
-
-    # turn off filtering, i.e. to avoid doing twice
-
-    updateCheckboxInput(session, "pops.filter", label = NULL, value = F)
 
     #
     # construct the actual POPS run
@@ -2238,8 +2240,8 @@ print( dim( values$opt[["hypno.stats"]] ) )
 
    if ( na == 1 )
    {
-    if ( input$mask.inc == "1" ) cmd <- paste("MASK ifnot=" , input$mask.annots , sep="" )
-    else cmd <- paste("MASK if=" , input$mask.annots , sep="" )    
+    if ( input$mask.inc == "1" ) cmd <- paste("MASK mask-ifnot=" , input$mask.annots , sep="" )
+    else cmd <- paste("MASK mask-if=" , input$mask.annots , sep="" )    
    }
    else if ( na > 1 )
    {
@@ -2253,6 +2255,12 @@ print( dim( values$opt[["hypno.stats"]] ) )
    }
    values$manipout <- capture.output(leval(cmd))
    update()
+  })
+
+  observeEvent(input$flipmask, {
+    req(values$hasdata)
+    leval("MASK flip")
+    update()
   })
 
 
@@ -2295,7 +2303,7 @@ print( dim( values$opt[["hypno.stats"]] ) )
 
 
   calcNormativeData <- reactive({    
-    req( input$norm.eegC, input$norm.eegF, input$norm.eegO )
+    req( c( input$norm.eegC, input$norm.eegF, input$norm.eegO ) ) 
 
     # get normative data
     # calculate values for this particular sample
@@ -2305,70 +2313,102 @@ print( dim( values$opt[["hypno.stats"]] ) )
   # CEN "theta_N1_C", "sigma_N2_C", "delta_N3_C"
   # CEN/FRT(N2) :     
   
-  has.cen <- ! is.null( input$norm.eegC )
-  has.frt <- ! is.null( input$norm.eegF )
-  has.occ <- ! is.null( input$norm.eegO ) 
+  has.cen <- ( ! is.null( input$norm.eegC ) ) && input$norm.eegC != "--none--" && input$norm.eegC != "" 
+  has.frt <- ( ! is.null( input$norm.eegF ) ) && input$norm.eegF != "--none--" && input$norm.eegF != "" 
+  has.occ <- ( ! is.null( input$norm.eegO ) ) && input$norm.eegO != "--none--" && input$norm.eegO != "" 
 
+  cat( "reqs" ,  has.cen , has.frt , has.occ , "\n")
   req( has.cen || has.frt || has.occ ) 
 
-  sigs <- c( ifelse( has.cen , input$norm.eegC , "." ) ,
-             ifelse( has.frt , input$norm.eegF , "." ) ,
-	     ifelse( has.occ , input$norm.eegO , "." ) )
-
-  # always refresh(), i.e. clear MASK
-#  lrefresh()
- 
+  sigs <- character()
+  if ( has.cen ) sigs <- c( sigs , input$norm.eegC )
+  if ( has.occ ) sigs <- c( sigs , input$norm.eegO )
+  if ( has.frt ) sigs <- c( sigs , input$norm.eegF )
+  sigs <- unique( sigs ) 
+  req( length( sigs ) != 0 ) 
+  cat( "sigs" , sigs , "\n" )
+  
   # PSD, w/ user-defined total power 
   k1 <- leval( paste( "EPOCH align & STAGE & PSD epoch total=0.5-20 sig=" , sigs , sep="" ) ) 
   ss <- k1$STAGE$E[, c("E","STAGE") ]
-  print(k1)
   alpha <- theta <- sigma <- delta <- data.frame()
+  totalO <- totalC <- data.frame()
 
-  alpha <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
-  theta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "THETA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-  sigma <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "SIGMA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-  delta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "DELTA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-
-  totalO <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
-  totalC <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-
+  if ( has.occ ) {
+   alpha <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
+   totalO <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
+  }
+  if ( has.cen ) {
+   theta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "THETA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+   sigma <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "SIGMA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+   delta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "DELTA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+   totalC <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
+ }
+  
+ 
   # merge/subset
-  alpha  <- merge( ss , alpha , by="E" )
-  theta  <- merge( ss , theta , by="E" )
-  sigma  <- merge( ss , sigma , by="E" )
-  delta  <- merge( ss , delta , by="E" )
-  totalO <- merge( ss , totalO , by="E" )
-  totalC <- merge( ss , totalC , by="E" )
+  if ( has.occ ) {
+   alpha  <- merge( ss , alpha , by="E" )
+   totalO <- merge( ss , totalO , by="E" )
+   alpha <- alpha$PSD[ alpha$STAGE == "W" ]
+   totalOW <- totalO$PSD[ totalO$STAGE == "W" ]
 
-  alpha <- alpha$PSD[ alpha$STAGE == "W" ]
-  theta <- theta$PSD[ theta$STAGE == "N1" ]
-  sigma <- sigma$PSD[ sigma$STAGE == "N2" ]
-  delta <- delta$PSD[ delta$STAGE == "N3" ]
-  totalOW <- totalO$PSD[ totalO$STAGE == "W" ]
-  totalCN1 <- totalO$PSD[ totalC$STAGE == "N1" ]
-  totalCN2 <- totalO$PSD[ totalC$STAGE == "N2" ]
-  totalCN3 <- totalO$PSD[ totalC$STAGE == "N3" ]  
+  }
 
+  if ( has.cen ) { 
+   theta  <- merge( ss , theta , by="E" )
+   sigma  <- merge( ss , sigma , by="E" )
+   delta  <- merge( ss , delta , by="E" )
+   totalC <- merge( ss , totalC , by="E" )
+
+   theta <- theta$PSD[ theta$STAGE == "N1" ]
+   sigma <- sigma$PSD[ sigma$STAGE == "N2" ]
+   delta <- delta$PSD[ delta$STAGE == "N3" ]
+   totalCN1 <- totalC$PSD[ totalC$STAGE == "N1" ]
+   totalCN2 <- totalC$PSD[ totalC$STAGE == "N2" ]
+   totalCN3 <- totalC$PSD[ totalC$STAGE == "N3" ]  
+  }
+  
   # outlier removal and normalization
-  alpha <- median( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
-  theta <- median( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
-  sigma <- median( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
-  delta <- median( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
+  if ( has.occ ) { 
+   alpha <- median( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
+  }
 
+  if ( has.cen ) {
+   theta <- median( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
+   sigma <- median( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
+   delta <- median( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
+  }
+  
 #  k <- leval
 # "spindle_amp_c", "spindle_amp_f"
 # "spindle_dens_c", "spindle_dens_f",
 # "spindle_dur_c",  "spindle_dur_f"
 # "spindle_freq_c", "spindle_freq_f"
 
-   list( alpha = alpha, theta = theta , sigma = sigma , delta = delta ,
-         ref.alpha = alpha_W_0 , ref.theta = theta_N1_C , ref.sigma = sigma_N2_C , ref.delta = delta_N3_C ) 
+ res1 <- list()
+ if ( has.occ ) {
+  cat( "adding OCC\n" )
+  res1[[ "alpha" ]] = alpha 
+  res1[[ "ref.alpha" ]] = alpha_W_0 
+ }
 
-  })
+ if ( has.cen ) {
+ cat("adding CEN\n")
+   res1[[ "theta" ]] = theta
+   res1[[ "sigma" ]] = sigma
+   res1[[ "delta" ]] = delta 
+
+   res1[[ "ref.theta" ]] = theta_N1_C
+   res1[[ "ref.sigma" ]] = sigma_N2_C
+   res1[[ "ref.delta" ]] = delta_N3_C
+ }
+
+  res1 
+})
 
 
 fnorm.plot1 <- function( d , val, age , sex , label ) {
- cat("age",age,"\n")
  yage <- d$Age_years
  ageega <- c( yage, rev(yage) )
  # reference range:
@@ -2393,17 +2433,36 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
  
 }
 
-  output$norm.lab <- renderText({ "Age/sex sleep EEG from norms Sun et al (2023) | https://doi.org/10.1016/j.neurobiolaging.2023.01.006" } ) 
+output$norm.lab <- renderText({ "Age/sex sleep EEG from norms Sun et al (2023) | https://doi.org/10.1016/j.neurobiolaging.2023.01.006" } ) 
 
-  output$norm.plots <- renderPlot({
+output$norm.plots <- renderPlot({
      req(values$hasdata )
 
      res <- calcNormativeData()
+
+cat("resnames\n")
+print( names(res) )
+
      par( mfcol=c(2,2) , mar=c(3,4,1,1) )
-     fnorm.plot1( res$ref.alpha , res$alpha , input$norm.age , input$norm.sex , "Occ. Alpha (W)" )
+
+cat( "ref.alpha" %in% names(res) , res$alpha  , "\n" )
+cat( "ref.sigma" %in% names(res) , res$sigma  , "\n" )
+
+  if ( "ref.alpha" %in% names(res) ) { 
+      fnorm.plot1( res$ref.alpha , res$alpha , input$norm.age , input$norm.sex , "Occ. Alpha (W)" )
+  } else {
+     frame()
+  }
+
+
+  if ( "ref.theta" %in% names(res) ) {
      fnorm.plot1( res$ref.theta , res$theta , input$norm.age , input$norm.sex , "Cen. theta (N1)" )
      fnorm.plot1( res$ref.sigma , res$sigma , input$norm.age , input$norm.sex , "Cen. sigma (N2)" )	  
      fnorm.plot1( res$ref.delta , res$delta , input$norm.age , input$norm.sex , "Cen. delta (N3)" )
+     } else {
+      frame(); frame(); frame();
+     }
+     
   })
 
 
@@ -2683,7 +2742,7 @@ fnorm.plot1 <- function( d , val, age , sex , label ) {
 # ExE explorer
 
 observeEvent( input$do.exe , {
- req( values$hasedf , input$exe.ch )
+ req( values$hasedf , input$exe.ch , values$opt[[ "maskset" ]] == F )
 
 # temp file for matrix
 exe.matfile <- tempfile()
@@ -2814,7 +2873,7 @@ observeEvent(input$exe_hover, {
 
 
 observeEvent( input$do.mtm , {
- req( values$hasedf , input$mtm.ch )
+ req( values$hasedf , input$mtm.ch , values$opt[[ "maskset" ]] == F )
 
 k30 <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=30                   tw=15 epoch" , sep="" ) )
 
@@ -3029,10 +3088,11 @@ output$mtm.view4 <- renderPlot({
 
 output$sigsumm.view1 <- renderPlot({
  req( values$sigsumm )
+
+isolate({ 
  chs <- rev( input$channels )
  nsig <- length(chs)
  nsec <- 30 * values$opt[["ne"]]
-
  winsor <- input$sigsumm.winsor
 
  # original epochs
@@ -3072,7 +3132,7 @@ output$sigsumm.view1 <- renderPlot({
    text( 90 , midy - 0.5 , ch , cex=1 , pos = 4 )
    ch.idx <- ch.idx + 1    
  }
-
+}) # end isolate
 })
 
 
