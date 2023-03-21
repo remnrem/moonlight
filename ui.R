@@ -66,9 +66,6 @@ pal10 <- c(
 )
 
 
-# ------------------------------------------------------------
-
-
 
 # ------------------------------------------------------------
 # Define UI
@@ -88,7 +85,8 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
       width = 2,
       h4( "Moonlight/Luna" ), 
       if ( local.mode )
-       shinyFilesButton("lfiles", label="Load data", title="Please select EDF/annotations files", multiple=T,
+       shinyFilesButton("lfiles", label="Load data",
+                        title="Please select EDF/annotations files", multiple=T,
                         style = 'width: 100%' )
       else
        fileInput("files", label=NULL, multiple = T,accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot") ) ,
@@ -199,12 +197,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                 column(2, selectInput("hypno.l", label = h5("L"), choices = list(), multiple = F, selectize = F))
               ),
               hr(), actionButton("hypno.assign", "Assign")
-            )
-          )
-        ),
-        tabPanel(
-          "SOAP/POPS",
-        tabsetPanel(
+            ),
 	 tabPanel("SOAP", 
           br(),
            fluidRow(
@@ -261,9 +254,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
               DT::dataTableOutput("sel.pops.features"),
               tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;"))
             )
-          )
-        ))),
-
+        ))) ),
         tabPanel(
           "Annots",
           plotOutput("annot.view", width = "100%", height = "175px"),
@@ -301,6 +292,13 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
           ),
           hr()
         ),
+
+        tabPanel( "Stats" ,
+	  tabsetPanel(
+           tabPanel( "Channel" , DT::dataTableOutput( "cstats.table" ) ) ,
+	   tabPanel( "Epoch" , DT::dataTableOutput( "estats.table" ) )
+	   )
+	  ),
 
         tabPanel( "Time/freq" , 
           tabsetPanel( 
@@ -393,8 +391,8 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                     fluidRow(
                      column( 1 , radioButtons( "mask.inc", "Mask" , c("Include" = "1" , "Exclude" = "0" ) ) ) ,
 		     column( 4 , selectInput( "mask.annots" , label = h5("Annotations"), choices = list(), multiple=T, selectize=F ) ) ,
-                     column( 5 , textInput( "mask.expr", label = h5("Expression") , width='100%') ),
-                     column( 2 , hr(col="white"), actionButton("domask", "Set" ) ,
+                     column( 4 , textInput( "mask.expr", label = h5("Expression") , width='100%') ),
+                     column( 3 , hr(col="white"), actionButton("domask", "Set" ) ,
 		                       actionButton("flipmask", "Flip" ),
 		                       actionButton("clearmask", "Clear" ) ) ) ),
            tabPanel("Map channels", hr( col="white" ) ,	    
