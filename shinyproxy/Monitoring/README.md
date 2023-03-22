@@ -7,6 +7,7 @@ Download [Prometheus monitoring system](https://prometheus.io/download/#:~:text=
 ```
 tar -xvzf prometheus-2.42.0.linux-amd64.tar.gz
 cd prometheus-2.42.0.linux-amd64
+touch prometheus.yml
 ```
 Copy and paste the below contents to `prometheus.yml`
 ```python
