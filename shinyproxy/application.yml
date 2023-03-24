@@ -18,7 +18,7 @@ proxy:
       cert-path: /home/none
       url: http://localhost:2375
       port-range-start: 20000
-      port-range-max: 20028
+      port-range-max: 20009
 
     specs:
     - id: moonlight
