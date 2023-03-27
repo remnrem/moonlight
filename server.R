@@ -222,6 +222,7 @@ load.data <- observeEvent( values$file.details , {
   # clear all
   # (todo - check why not simply setting values to NULL / list() ) 
    values$opt  <- NULL
+   values$elen <- 30
    values$soap <- NULL
    values$pops <- NULL
    values$view <- NULL
@@ -352,9 +353,15 @@ load.data <- observeEvent( values$file.details , {
 
   init <- function() {
 
+    # check we can use 30-second epochs
+    # otherwise, drop to 1-second epochs
+
+    values$elen <- 30 
+    ne <- lepoch()
+    if ( ne == 0 ) values$elen <- 1
+
     # epoch recording & SEGMENTS
-    
-    ret <- leval("EPOCH verbose & SEGMENTS")
+    ret <- leval( paste( "EPOCH dur=" , values$elen , " verbose & SEGMENTS" , sep="" ) )
 
     values$opt[["init.epochs"]] <- ret$EPOCH$E
     values$opt[["ne"]] <- dim(ret$EPOCH$E)[1]
@@ -365,7 +372,7 @@ load.data <- observeEvent( values$file.details , {
 
     # get stage-aligned epochs and hypnogram
 
-    ret <- leval("EPOCH align verbose")
+    ret <- leval( paste( "EPOCH align verbose dur=" , values$elen , sep="" ) )
 
     values$opt[["ne.aligned"]] <- dim(ret$EPOCH$E)[1]
     values$opt[["init.epochs.aligned"]] <- ret$EPOCH$E
@@ -444,7 +451,7 @@ load.data <- observeEvent( values$file.details , {
       req( has.records == T )
 
       values$opt[["header1"]] <- ret$HEADERS$BL
-      values$opt[["header1"]]$EPOCH <- values$opt[["header1"]]$TOT_DUR_SEC / 30.0
+      values$opt[["header1"]]$EPOCH <- values$opt[["header1"]]$TOT_DUR_SEC / values$elen
 
       values$opt[["header2"]] <- ret$HEADERS$CH
       values$opt[["header2"]] <- values$opt[["header2"]][, c("CH", "PDIM", "SR", "PMIN", "PMAX", "TRANS")]
@@ -664,7 +671,7 @@ load.data <- observeEvent( values$file.details , {
       "| clocktime", values$opt[["header1"]]$START_TIME,
       "-", values$opt[["header1"]]$STOP_TIME, "| duration",
       values$opt[["header1"]]$TOT_DUR_HMS, "|", values$opt[["header1"]]$TOT_DUR_SEC, " secs |",
-      floor(values$opt[["header1"]]$TOT_DUR_SEC / 30.0), " epochs"
+      floor(values$opt[["header1"]]$TOT_DUR_SEC / values$elen), " epochs"
     )
   })
 
@@ -722,12 +729,12 @@ load.data <- observeEvent( values$file.details , {
 
   output$basic.ecount <- renderText({
     req(values$hasedf)
-    paste(values$opt[["ne"]], "original epochs")
+    paste(values$opt[["ne"]], "original epochs (epoch length = " , values$elen , "sec)" )
   })
 
   output$aligned.ecount <- renderText({
     req(values$hasedf)
-    paste(values$opt[["ne.aligned"]], "stage-aligned original epochs")
+    paste(values$opt[["ne.aligned"]], "stage-aligned original epochs (epoch length = " , values$elen , "sec)" )
   })
 
   output$selected.ecount <- renderText({
@@ -870,8 +877,8 @@ load.data <- observeEvent( values$file.details , {
     ne <- values$opt[["ne"]]
     if (!is.null(brush)) {
       # 120=60^2/30
-      mine <- floor(brush$xmin * 120) + 1
-      maxe <- ceiling(brush$xmax * 120) + 1      
+      mine <- floor(brush$xmin * (60^2)/values$elen ) + 1
+      maxe <- ceiling(brush$xmax * (60^2) /values$elen ) + 1      
       values$opt[["hypno.epochs"]]$STAGE <- rep("L", ne)
       values$opt[["hypno.epochs"]]$STAGE[mine:maxe] <- values$opt[["all.hypno.epochs"]]$STAGE[mine:maxe]
 
@@ -1071,7 +1078,7 @@ load.data <- observeEvent( values$file.details , {
      par(mar = c(0, 0, 0, 0))
      ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
      df <- merge( ret$PSD$CH_E_F , ttable , by="E" , all.x = T )     
-     lpointmap(df$START, df$F, df$PSD, xlim=c(0,values$opt[["init.secs"]]), xs=30, ys=0.25, win = 0.05)
+     lpointmap(df$START, df$F, df$PSD, xlim=c(0,values$opt[["init.secs"]]), xs=values$elen, ys=0.25, win = 0.05)
     })
   })
 
@@ -1281,6 +1288,7 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$soap.run, {
     req(values$hasdata, input$soap.ch , values$opt[[ "maskset" ]] == F )
     req(length(unique(values$opt[["ss"]]$STAGE[values$opt[["ss"]]$E %in% values$opt[["included"]]])) >= 2)
+    req( values$elen == 30 )
 
     # always make a copy, i.e. so as not to change SR for original
     if ( ! paste( input$soap.ch , "SOAP" , sep="_" ) %in% values$opt[[ "chs" ]] ) 
@@ -1376,7 +1384,8 @@ load.data <- observeEvent( values$file.details , {
 
   observeEvent(input$pops.run, {
     req(values$hasdata, values$opt[[ "maskset" ]] == F )
-
+    req( values$elen == 30 )
+	
     equiv_mode <- F
 
     if (input$popstabs == "M1") {
@@ -1723,7 +1732,7 @@ load.data <- observeEvent( values$file.details , {
 
       isolate({
 
-        # epochs are the (30-second) spanning epochs which are fetched (that always)
+        # epochs are the (30-second by default) spanning epochs which are fetched (that always)
         # if zoom is defined, then back calculate
 
         # should not happen, but if for some reason nothing is defined,
@@ -1732,15 +1741,15 @@ load.data <- observeEvent( values$file.details , {
         if ( is.null(epochs) & is.null(zoom) ) {
           epochs <- c(1, 1)
 	  sec1 <- df$START[ df$E == 1 ] 
-          zoom <- c(sec1, sec1+30)
+          zoom <- c(sec1, sec1+values$elen )
           values$view[["raw.signals"]] <- T
         } else {
           if (is.null(epochs)) {
-            epochs <- c(floor((zoom[1] / 30) + 1), floor((zoom[2] / 30) + 1))
+            epochs <- c(floor((zoom[1] /  values$elen ) + 1), floor((zoom[2] / values$elen ) + 1))
           }
 
          if (is.null(zoom)) {
-           zoom <- c((epochs[1] - 1) * 30, epochs[2] * 30)
+           zoom <- c((epochs[1] - 1) * values$elen, epochs[2] * values$elen )
  #         zoom <- c( df$START[ df$E == epochs[1] ] , df$
           }
 
@@ -1753,13 +1762,14 @@ load.data <- observeEvent( values$file.details , {
         # we should now have a) the spanning epochs (for ldata() ) in values$view[[ "epochs" ]]
         # and the range to display in values$view[[ "zoom" ]] (in seconds)
 
-        #              cat( "\n\nepochs : " , epochs , "\n" )
-        #              cat( "seconds: " , secs , "\n" )
+#                      cat( "\n\nepochs : " , epochs , "\n" )
+#                      cat( "seconds: " , secs , "\n" )
 
         # update raw signals status as needed: if more than 5 mins, use summary stats
         # 1 / 3 / 5 / 7 / 9
-        values$view[["raw.signals"]] <- (zoom[2] / 30 - zoom[1] / 30) < 10
-
+        values$view[["raw.signals"]] <- (zoom[2] - zoom[1] ) < 5 * 60 
+#        cat(  zoom[1] , zoom[2] , "is zoomer\n" )
+	
         annots <- input$annots
         chs <-  input$channels 
         na <- length(annots)
@@ -1817,9 +1827,9 @@ load.data <- observeEvent( values$file.details , {
         enum <- values$opt[["ss"]]$E
 
         for (e in epochs[1]:epochs[2]) {
-          s <- secs[1] + (e - epochs[1]) * 30
+          s <- secs[1] + (e - epochs[1]) * values$elen 
           if (s < secs[2]) {
-            s_end <- s + 30
+            s_end <- s + values$elen
             if (s_end > secs[2]) {
               s_end <- secs[2]
             }
@@ -2065,7 +2075,7 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$sel.inst, {
     xx <- range(as.numeric(unlist(strsplit(input$sel.inst, " "))))
     sz <- diff(xx)
-    xx <- c(floor(xx[1] / 30) + 1, ceiling(xx[2] / 30))
+    xx <- c(floor(xx[1] / values$elen ) + 1, ceiling(xx[2] / values$elen ))
     # if sz > 10 seconds, expand to 3 epochs if would
     # otherwise have been a one-second view
     if (sz > 10 & xx[1] == xx[2]) {
@@ -2091,7 +2101,7 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$zoom_brush, {
     brush <- input$zoom_brush
     epochs <- values$view[["epochs"]]
-    if (!is.null(brush) && !(brush$xmin < (epochs[1] - 1) * 30 || brush$xmax > epochs[2] * 30)) {
+    if (!is.null(brush) && !(brush$xmin < (epochs[1] - 1) * values$elen || brush$xmax > epochs[2] * values$elen)) {
       values$view[["zoom"]] <- c(brush$xmin, brush$xmax)
     } else {
       values$view[["zoom"]] <- NULL
@@ -2283,7 +2293,7 @@ load.data <- observeEvent( values$file.details , {
     req(values$hasdata)
     # note, this will destory any current MASK
     isolate({
-      ret <- leval("RE & EPOCH align verbose & DUMP-MASK ")
+      ret <- leval( paste( "RE & EPOCH align verbose dur=" , values$elen , " & DUMP-MASK " , sep="" ) )
       values$opt[["curr.epochs"]] <- ret$EPOCH$E
       values$opt[["curr.ne"]] <- dim(ret$EPOCH$E)[1]
       values$opt[["unmasked"]] <- ret$DUMP_MASK$E$E[ret$DUMP_MASK$E$EMASK == 0]
@@ -2300,7 +2310,8 @@ load.data <- observeEvent( values$file.details , {
 
   calcNormativeData <- reactive({    
     req( c( input$norm.eegC, input$norm.eegF, input$norm.eegO ) ) 
-
+    req( values$elen == 30 )
+    
     # get normative data
     # calculate values for this particular sample
 
@@ -2919,7 +2930,8 @@ output$estats.table <- renderDataTable({
 
 observeEvent( input$do.mtm , {
  req( values$hasedf , input$mtm.ch , values$opt[[ "maskset" ]] == F )
-
+ req( values$elen == 30 )
+ 
  k30 <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=30 tw=15 epoch" , sep="" ) )
 
  # get times of segments (START STOP DISC)
@@ -2992,7 +3004,8 @@ do.lwr.mtm <- function()
 
 output$mtm.view1 <- renderPlot({
   req( values$mtm )
-  req( input$mtm.flwr <  input$mtm.fupr ) 
+  req( input$mtm.flwr <  input$mtm.fupr )
+  req( values$elen == 30 )
   frq <- values$mtm[[ "f30" ]]$F  
   frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
   req( length(frq)>1 )
@@ -3007,6 +3020,7 @@ output$mtm.view1 <- renderPlot({
 output$mtm.view2 <- renderPlot({
   req( values$mtm )
   req( input$mtm.flwr <  input$mtm.fupr )
+  req( values$elen == 30 )
   frq <- values$mtm[[ "f5" ]]$F
   frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
   req( length(frq)>1 )
@@ -3126,7 +3140,7 @@ output$sigsumm.view1 <- renderPlot({
  isolate({ 
   chs <- rev( input$channels )
   nsig <- length(chs)
-  nsec <- 30 * values$opt[["ne"]]
+  nsec <- values$elen * values$opt[["ne"]]
   winsor <- input$sigsumm.winsor
 
   # original epochs
@@ -3161,8 +3175,8 @@ output$sigsumm.view1 <- renderPlot({
     y3 <- round( y3 * 100 )
     y2[ y2 < 1 ] <- 1 ; y3[ y3 < 1 ] <- 1 
     midy <- ch.idx - 0.4
-    rect( df$START , midy        , df$START+30 , midy+0.4*y1 , col = pal[y2] , border=NA)
-    rect( df$START , midy-0.4*y1 , df$START+30 , midy        , col = pal[y3] , border=NA)
+    rect( df$START , midy        , df$START + values$elen , midy+0.4*y1 , col = pal[y2] , border=NA)
+    rect( df$START , midy-0.4*y1 , df$START + values$elen , midy        , col = pal[y3] , border=NA)
     text( 90 , midy - 0.5 , ch , cex=1 , pos = 4 )
     ch.idx <- ch.idx + 1    
   }
@@ -3205,7 +3219,7 @@ observeEvent(input$sigsumm_hover, {
   chs <- rev( input$channels ) 
   ns <- length( chs )
   # pull one epoch
-  t <- list( c( input$sigsumm_hover$x , input$sigsumm_hover$x+30) ) 
+  t <- list( c( input$sigsumm_hover$x , input$sigsumm_hover$x+values$elen) ) 
   ch <- chs[ max(1,min( ns, floor( input$sigsumm_hover$y )+1 ) )  ]
   values$sigsumm2 <- ldata.intervals( i = t , chs = ch )[,3] 
   values$sigsumm2.label <- ch
