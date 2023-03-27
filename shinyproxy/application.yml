@@ -2,10 +2,10 @@ proxy:
     title:
     landing-page: /
     heartbeat-rate: 15000
-    heartbeat-timeout: 120000
+    heartbeat-timeout: 3600000 # 1 Hour the time in milliseconds that the server must receive no heartbeat in order to terminate the proxy.
     port: 9191
-    template-path: ./templates
-    container-wait-time: 800000
+    template-path: ./templates/modified_navbar
+    container-wait-time: 20000
     container-log-path: ./container-logs
     support:
       mail-to-address: smpurcell@bwh.harvard.edu
@@ -24,7 +24,7 @@ proxy:
     - id: moonlight
       display-name: Moonlight
       container-cmd: ["R", "-e", "shiny::runApp('/root/moon')"]
-      container-image: moonlight-webapp
+      container-image: moonlight-mar22-2023
       max-instances: 1
 
 management:
