@@ -23,7 +23,6 @@
 library(shiny)
 library(luna)
 library(shinybusy)
-library(shinythemes)
 library(DT)
 
 # ------------------------------------------------------------
