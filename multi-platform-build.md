@@ -5,9 +5,10 @@ Lists all builder instances and the nodes for each instance
 docker buildx ls
 ```
 ```
-NAME/NODE       DRIVER/ENDPOINT  STATUS  BUILDKIT PLATFORMS        
-desktop-linux   docker                            
-desktop-linux desktop-linux    running 20.10.24 linux/arm64, linux/amd64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
+NAME/NODE       DRIVER/ENDPOINT STATUS  BUILDKIT PLATFORMS
+default                         error            
+desktop-linux * docker                           
+  desktop-linux desktop-linux   running 20.10.24 linux/arm64, linux/amd64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
 ```
 Each builder has one or more nodes associated with it. The current builder’s name is marked with a `*` in `NAME/NODE` and 
 explicit node to build against for the target platform marked with a `*` in the `PLATFORMS` column.
