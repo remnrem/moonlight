@@ -6,8 +6,8 @@ docker buildx ls
 ```
 ```
 NAME/NODE       DRIVER/ENDPOINT STATUS  BUILDKIT PLATFORMS
-desktop-linux * docker                           
-  desktop-linux desktop-linux   running 20.10.24 linux/arm64, linux/amd64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
+mybuilder *          docker-container                  
+  mybuilder0         desktop-linux    running v0.11.5  linux/arm64*, linux/amd64*, linux/riscv64, linux/ppc64le, linux/s390x, linux/386
 ```
 Each builder has one or more nodes associated with it. The current builder’s name is marked with a `*` in `NAME/NODE` and 
 explicit node to build against for the target platform marked with a `*` in the `PLATFORMS` column.
@@ -15,11 +15,12 @@ explicit node to build against for the target platform marked with a `*` in the 
 #### 1) Enter the following command to create a new builder, which we’ll call mybuilder
 
 ```R
-docker buildx create --name moonlightbuilder --use --bootstrap
+docker buildx create --name mybuilder --platform linux/arm64,linux/amd64
+docker use mybuilder
 ```
 #### 2) You can inspect the builder by entering
 ```R
-docker buildx inspect moonlightbuilder
+docker buildx inspect mybuilder
 ```
 #### 3) You can also see what runtime platforms your current builder instance supports by running
 ```R
