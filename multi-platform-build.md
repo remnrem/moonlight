@@ -1,12 +1,20 @@
 ## Docker Multi-Platform build notes
+
+Run the `docker buildx ls` command to list the current builder instances. The command should return something like
+```
+NAME/NODE       DRIVER/ENDPOINT  STATUS  BUILDKIT PLATFORMS        
+desktop-linux   docker                            
+desktop-linux desktop-linux    running 20.10.24 linux/arm64, linux/amd64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
+  ```
+
 #### 1) Enter the following command to create a new builder, which we’ll call mybuilder
 
 ```R
-docker buildx create --name mybuilder --use --bootstrap
+docker buildx create --name moonlightbuilder --use desktop-linux --bootstrap
 ```
 #### 2) You can inspect the builder by entering
 ```R
-docker buildx inspect mybuilder
+docker buildx inspect moonlightbuilder
 ```
 #### 3) You can also see what runtime platforms your current builder instance supports by running
 ```R
