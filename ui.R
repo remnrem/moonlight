@@ -20,8 +20,6 @@
 #
 #  --------------------------------------------------------------------
 
-# source("ui.R"); source("server.R"); shinyApp(ui,server)
-
 library(shiny)
 library(luna)
 library(shinybusy)
