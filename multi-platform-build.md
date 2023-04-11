@@ -15,7 +15,7 @@ explicit node to build against for the target platform marked with a `*` in the 
 #### 1) Enter the following command to create a new builder, which we’ll call mybuilder
 
 ```R
-docker buildx create --name moonlightbuilder --use desktop-linux --bootstrap
+docker buildx create --name moonlightbuilder --use --bootstrap
 ```
 #### 2) You can inspect the builder by entering
 ```R
