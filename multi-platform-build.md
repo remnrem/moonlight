@@ -16,7 +16,7 @@ explicit node to build against for the target platform marked with a `*` in the 
 
 ```R
 docker buildx create --name mybuilder --platform linux/arm64,linux/amd64
-docker use mybuilder
+docker buildx use mybuilder
 ```
 #### 2) You can inspect the builder by entering
 ```R
