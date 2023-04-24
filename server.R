@@ -3436,19 +3436,27 @@ observeEvent( input$nsrr.login , {
  # save token 
  values$mb.token = input$nsrr.token
  values$mb.nsrr = T
+ okay <- T
  # get list of cohorts available for this person
   try( {
    url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t" , input$nsrr.token , sep="=" ) 
    tmp <- tempfile()
    curl_download( url , tmp )
+   
     if ( file.exists( tmp ) ) {
-      df <- read.table( tmp , header=F , sep="\t" )
-      dnames <- setNames( as.list( df[,1] ) , df[,2] ) 
-      updateSelectInput( session, "nsrr.cohorts", choices = dnames , label = paste( length(dnames),"cohorts") , selected = df[1,1] )
-      # save cohort list
-      values$mb.cohorts <- df
-    }
-   })   
+      retval <- try( df <- read.table( tmp , header=F , sep="\t" ) )
+      if ( class( retval) != "try-error" ) {
+        dnames <- setNames( as.list( df[,1] ) , df[,2] ) 
+       updateSelectInput( session, "nsrr.cohorts", choices = dnames , label = paste( length(dnames),"cohorts") , selected = df[1,1] )
+       # save cohort list
+       values$mb.cohorts <- df
+      } else { okay = F }
+    } else { okay = F } 
+   })
+ if ( ! okay ) {
+  updateSelectInput( session, "nsrr.cohorts", choices = list() , label = "Cohorts" , selected = 0 )
+  updateSelectInput( session, "nsrr.indivs", choices = list() , label = "Individuals" , selected = 0 )
+ }
  })
 
 observeEvent( input$nsrr.cohorts , {
