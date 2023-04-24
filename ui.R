@@ -20,6 +20,8 @@
 #
 #  --------------------------------------------------------------------
 
+# source("ui.R"); source("server.R"); shinyApp( ui, server ) 
+
 library(shiny)
 library(luna)
 library(shinybusy)
@@ -92,9 +94,11 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
 
       textOutput("text.header1a"),  
       hr(),
-      div(style = "margin-top: -10px"),
-      actionButton("load.default", "Example data" , width='100%'),
-      div(style = "margin-top: -10px"),
+#      div(style = "margin-top: -10px"),
+      fluidRow(
+        column(6, actionButton("moonbeam", "Moonbeam") ) , 
+        column(6, actionButton("load.default", "Example" ) ) ),
+#      div(style = "margin-top: -10px"),
       hr(),
 
       # Select channels

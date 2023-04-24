@@ -24,6 +24,7 @@ library(shiny)
 library(luna)
 library(shinybusy)
 library(DT)
+library(curl)
 
 # ------------------------------------------------------------
 # Options
@@ -188,6 +189,182 @@ observeEvent( input$files , {
 
 
 # ------------------------------------------------------------
+# initiate user upload, e.g. from dropbox URLs
+
+observeEvent( input$user.upload , {
+ req( input$edf.url )
+ cat("initiating user defined upload...\n") 
+ values$mb.nsrr = F
+ edf.name = NULL
+ edf.path = NULL
+ annot.name = NULL
+ annot.path = NULL 
+
+ # EDF
+ try( {
+   url1 <- gsub( "?dl=0" , "?dl=1" , input$edf.url , fixed = T )
+   cat( "beaming:", url1 , "\n" )
+   tmp1 <- tempfile( fileext = ".edf" )
+   # note - fix for dropbox links w/ ?dl=0 ---> use ?dl=1 for direct download
+   curl_download( url1 , tmp1)
+   if ( file.exists( tmp1 ) ) {
+      edf.name = "moonbeam.edf"
+      edf.path = tmp1
+      cat( "edf   :" , tmp1 , "\n" )
+   }
+   
+ })
+
+ # annotation file
+ if ( ! is.null( input$annot.url ) )
+ {
+  try( {
+   url2	<- gsub( "?dl=0" , "?dl=1" , input$annot.url , fixed = T )
+   cat( "beaming:", url2 , "\n" )
+   atype <- NULL
+   if ( grepl( ".xml" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".xml"
+   if ( grepl( ".annot" , tolower(input$annot.url) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".txt" , tolower(input$annot.url) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".eannot" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".eannot"
+   if ( ! is.null( atype ) )
+   { 
+    tmp2 <- tempfile( fileext = atype )
+    curl_download( url2 , tmp2 )
+    if ( file.exists( tmp2 ) ) {
+      annot.name = paste( "moonbeam" , atype , sep="" )
+      annot.path = tmp2
+      cat( "annot :" , tmp2 , "\n" )
+    }
+   }
+ })
+ }
+   
+ removeModal()
+ 
+# update to 
+values$file.details <-
+ list( edf.name = edf.name , 
+       edf.path = edf.path , 
+       annot.names = annot.name , 
+       annot.paths = annot.path )
+
+
+  
+} )
+
+
+
+
+# ------------------------------------------------------------
+# initiate from NSRR upload (Moonbeam)
+
+
+observeEvent( input$nsrr.upload , {
+ req( input$nsrr.indivs )
+ cat("initiating NSRR moonbeam..." )
+
+ values$mb.nsrr = T
+ edf.name = NULL
+ edf.path = NULL
+ annot.name = NULL
+ annot.path = NULL 
+
+ # get all files for this indiv
+ files <- values$mb.indivs[ values$mb.indivs[,2] == input$nsrr.indivs ,3 ]
+ cat( "found", length(files) , "for individual" , input$nsrr.indivs , "\n" )
+ req( length( files ) > 0 )
+ 
+ # get EDF - should have exactly 1 - either .edf or .edf.gz
+ # if the latter, also pull .edf.gz.idx
+ # then expect 1+ annotation files (XML, .annot) 
+ ee <- grep( ".edf$" , files  , ignore.case=T ) 
+ zz <- grep( ".edf.gz$" , files , ignore.case=T )
+ ii <- grep( ".edf.gz.idx$" , files , ignore.case=T ) 
+ # if both EDF and EDF.GZ pick EDF
+ f.edf <- NULL
+ if ( length(zz) >= 1 ) f.edf <- files[ zz[1] ]
+ if ( length(ee) >= 1 ) f.edf <- files[ ee[1] ] 
+ req( f.edf )
+ is.gz = length( grep( ".edf.gz$" , f.edf , ignore.case=T ) ) == 1 
+ 
+ # assume everything else is annotation
+
+ # (as .idx files are not listed in the manifest - but just in case some got it drop here
+ f.annot <- paste( files[ - c( ee,zz,ii ) ] , collapse="," )
+
+ # for now, assume a single file
+# if ( length( f.annot ) > 1 ) f.annot = f.annot[1]
+
+ cat( "EDF" , f.edf , "\n" )
+ cat( "annots" , f.annot , "\n" )
+
+ tmp.edfgz <- ""
+ # EDF
+ try( {
+   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , f.edf , sep="" )
+   tmp <- tempfile( fileext = ifelse( is.gz , ".edf.gz"  , ".edf" ) )
+   tmp.edfgz <- tmp
+   cat( "beaming:", url , "\n" )
+   curl_download( url , tmp )
+   if ( file.exists( tmp ) ) {
+      edf.name = paste( input$nsrr.indivs , ifelse( is.gz , "edf.gz"  , "edf" ), sep="." ) 
+      edf.path = tmp
+   }
+ })
+
+ # EDF.GZ.IDX? -> ensure has same file root as file.edf.gz --> file.edf.gz.idx
+ # so that Luna can find it
+ if ( is.gz ) {
+   try( {
+   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , paste( f.edf, "idx",sep=".") , sep="" )
+   tmp <- paste( tmp.edfgz , "idx" , sep="." ) 
+   cat( "beaming:", url , "\n" )
+   curl_download( url , tmp )
+  })
+ }
+ 
+ # annotation file(s)
+ if ( length( f.annot ) == 1 )
+ {
+  try( {
+   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , f.annot , sep="" )
+   cat( "beaming:", url , "\n" )
+   atype <- NULL
+   if ( grepl( ".xml" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".xml"
+   if ( grepl( ".annot" , tolower(f.annot) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".txt" , tolower(f.annot) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".eannot" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".eannot"
+   if ( ! is.null( atype ) )
+   { 
+    tmp <- tempfile( fileext = atype )
+    curl_download( url , tmp )
+    if ( file.exists( tmp ) ) {
+      annot.name = paste( input$nsrr.indivs , atype , sep="" )
+      annot.path = tmp
+    }
+   }
+ })
+ }
+   
+ removeModal()
+
+ cat( "EDF temp file path:" , edf.path , "\n" )
+ cat( "ANOT temp file path:" , annot.path , "\n" )
+
+# update to 
+values$file.details <-
+ list( edf.name = edf.name , 
+       edf.path = edf.path , 
+       annot.names = annot.name , 
+       annot.paths = annot.path )
+
+
+  
+} )
+
+
+
+# ------------------------------------------------------------
 # initiate view w/ an example dataset
 
 observeEvent(input$load.default, {
@@ -216,6 +393,7 @@ load.data <- observeEvent( values$file.details , {
   annot.paths <- values$file.details[[ "annot.paths" ]]
 
 # clear old data out
+  try( lrefresh() )
   try( ldrop() )
   
   # clear all
@@ -317,11 +495,14 @@ load.data <- observeEvent( values$file.details , {
    cat(" has annotations?", values$hasannots, "\n")
 
 
+   try( lrefresh() )
+   
    # process EDF
 
    if (values$hasedf) {
 
       # attach EDF
+      cat( "attaching" , values$opt[["edfpath"]] , "\n" )
       ledf( values$opt[["edfpath"]] )
 
       # read all EDF+ annotations as class-level
@@ -330,9 +511,10 @@ load.data <- observeEvent( values$file.details , {
 
       # add any annotations
       for (a in values$opt[["annotpaths"]]) {
-        ladd.annot.file(a)
+         cat("attaching" , a , "\n" )
+         ladd.annot.file(a)
       }
-
+      
       # kick off initial analyses
       init()
 
@@ -3226,4 +3408,71 @@ observeEvent(input$sigsumm_hover, {
 })
 
 
+# Moonbeam/NSRR
+
+observeEvent(input$moonbeam, {
+  showModal(modalDialog(
+     title = "Moonbeam",
+     tabsetPanel( id = "moonbeam.tabs", 
+       tabPanel( "User URLs" , value = "user" , 
+         textInput("edf.url", "EDF URL",width='100%' ),
+         textInput("annot.url", "Annotation URL",width='100%'),
+         actionButton("user.upload", "Upload") ),
+       tabPanel( "NSRR" , value = "nsrr" , 
+         fluidRow(
+          column( 4, textInput("nsrr.token", "NSRR token (http://sleepdata.org/token)" , value = values$mb.token ) ),
+	  column( 4, selectInput("nsrr.cohorts",label="Cohorts",choices=setNames( as.list( values$mb.cohorts[,1] ) , values$mb.cohorts[,2] ) ,multiple = F,selectize = T) ),
+          column( 4, selectInput("nsrr.indivs",label="Individuals",choices= unique(values$mb.indivs[,2]) ,multiple = F,selectize = T) ) ),
+         fluidRow( column( 2 ,  actionButton("nsrr.login", "Authenticate") ) , column( 6 , textOutput("nsrr.accnt") ) , column(2,actionButton("nsrr.upload", "Upload")  ) ) 
+	 )
+	),         
+   footer = tagList( modalButton("Cancel") ) ,
+   size = "l" )
+     ) } )
+
+
+observeEvent( input$nsrr.login , {
+ req( input$nsrr.token ) 
+ # save token 
+ values$mb.token = input$nsrr.token
+ values$mb.nsrr = T
+ # get list of cohorts available for this person
+  try( {
+   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t" , input$nsrr.token , sep="=" ) 
+   tmp <- tempfile()
+   curl_download( url , tmp )
+    if ( file.exists( tmp ) ) {
+      df <- read.table( tmp , header=F , sep="\t" )
+      dnames <- setNames( as.list( df[,1] ) , df[,2] ) 
+      updateSelectInput( session, "nsrr.cohorts", choices = dnames , label = paste( length(dnames),"cohorts") , selected = df[1,1] )
+      # save cohort list
+      values$mb.cohorts <- df
+    }
+   })   
+ })
+
+observeEvent( input$nsrr.cohorts , {
+ req( input$nsrr.cohorts )
+ cat( "beaming:" , input$nsrr.cohorts , "\n" )
+   try( {
+   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&c=" , input$nsrr.cohorts , sep="" )
+   tmp <- tempfile()
+   curl_download( url , tmp )
+    if ( file.exists( tmp ) ) {
+      df <- read.table( tmp , header=F , sep="\t" )
+      ids <- unique( df[,2] ) 
+      updateSelectInput( session, "nsrr.indivs", choices = ids , label = paste( length(ids),"individuals") , selected = ids[1] )
+      # save MB all indivs & all files
+      values$mb.indivs = df
+    }
+   })
+})
+
+
+
+
+
+# END
 }
+
+
