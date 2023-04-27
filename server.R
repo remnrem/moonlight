@@ -223,8 +223,8 @@ observeEvent( input$user.upload , {
    cat( "beaming:", url2 , "\n" )
    atype <- NULL
    if ( grepl( ".xml" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".xml"
-   if ( grepl( ".annot" , tolower(input$annot.url) , fixed = TRUE ) ) atype < ".annot"
-   if ( grepl( ".txt" , tolower(input$annot.url) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".annot" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".annot"
+   if ( grepl( ".txt" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".annot"
    if ( grepl( ".eannot" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".eannot"
    if ( ! is.null( atype ) )
    { 
@@ -331,8 +331,8 @@ observeEvent( input$nsrr.upload , {
    cat( "beaming:", url , "\n" )
    atype <- NULL
    if ( grepl( ".xml" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".xml"
-   if ( grepl( ".annot" , tolower(f.annot) , fixed = TRUE ) ) atype < ".annot"
-   if ( grepl( ".txt" , tolower(f.annot) , fixed = TRUE ) ) atype < ".annot"
+   if ( grepl( ".annot" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".annot"
+   if ( grepl( ".txt" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".annot"
    if ( grepl( ".eannot" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".eannot"
    if ( ! is.null( atype ) )
    { 
@@ -349,7 +349,7 @@ observeEvent( input$nsrr.upload , {
  removeModal()
 
  cat( "EDF temp file path:" , edf.path , "\n" )
- cat( "ANOT temp file path:" , annot.path , "\n" )
+ cat( "ANNOT temp file path:" , annot.path , "\n" )
 
 # update to 
 values$file.details <-

@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
     libgit2-dev \
     libssl-dev \
     libssh2-1-dev \
-    libxml2-dev \
     libcurl4-openssl-dev \
+    libxml2-dev \
     libomp-dev \
     cmake \
     libxt6 \
@@ -102,6 +102,6 @@ COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/local/lib
 COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/lib
 COPY --from=builder /usr/local/lib/R /usr/local/lib/R
 
-# ENV MOONLIGHT_SERVER_MODE=1
+# ENV MOONLIGHT_SERVER_MODE=0
 EXPOSE 3838
 CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]
