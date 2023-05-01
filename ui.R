@@ -279,7 +279,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
               width = "100%",
               min = 0, max = 100, step = 0.25, value = c(0.3, 35)
             )),
-            column(width = 3, textOutput("info2"))
+            column(width = 3, htmlOutput("info2"))
           ),
           plotOutput("signal.master",
             width = "100%", height = "30px", click = "master_click", dblclick = "master_dblclick",

@@ -561,20 +561,21 @@ load.data <- observeEvent( values$file.details , {
     ret <- leval("HYPNO epoch")
 
     values$hasstaging <- !is.null(lstages())
-
+    
     if (values$hasstaging) {
       values$opt[["hypno.stats"]] <- ret$HYPNO$BL
       values$opt[["hypno.epochs"]] <- ret$HYPNO$E
       values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-      values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE")]
+      values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE", "START_SEC")]      
+      values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
       values$opt[["hypno.cycles"]] <- ret$HYPNO$C
       values$opt[["hypno.stages"]] <- ret$HYPNO$SS
     }
 
     # signal view parameter defaults
 
+    values$view[["secview"]] <- c(0, 30)
     values$view[["epochs"]] <- c(1, 1)
-    values$view[["zoom"]] <- NULL
     values$view[["raw.signals"]] <- T
     values$view[["bandpass"]] <- F
     values$view[["bpflt"]] <- c(0.3, 35)
@@ -584,7 +585,7 @@ load.data <- observeEvent( values$file.details , {
     cat(" # epochs (raw)", values$opt[["ne"]], "\n")
     cat(" # epochs (stage-aligned)", values$opt[["ne.aligned"]], "\n")
     cat(" has-staging?", values$hasstaging, "\n")
-
+    
   }
 
 
@@ -595,11 +596,12 @@ load.data <- observeEvent( values$file.details , {
     req(values$hasstaging)
 
     ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = ""))
-
+    
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE")]
+    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE","START_SEC")]
+    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
   }
@@ -632,7 +634,7 @@ load.data <- observeEvent( values$file.details , {
       req( has.records == T )
 
       values$opt[["header1"]] <- ret$HEADERS$BL
-      values$opt[["header1"]]$EPOCH <- values$opt[["header1"]]$TOT_DUR_SEC / values$elen
+      values$opt[["header1"]]$EPOCH <- values$opt[["header1"]]$REC_DUR_SEC / values$elen
 
       values$opt[["header2"]] <- ret$HEADERS$CH
       values$opt[["header2"]] <- values$opt[["header2"]][, c("CH", "PDIM", "SR", "PMIN", "PMAX", "TRANS")]
@@ -851,8 +853,8 @@ load.data <- observeEvent( values$file.details , {
       "start date", values$opt[["header1"]]$START_DATE,
       "| clocktime", values$opt[["header1"]]$START_TIME,
       "-", values$opt[["header1"]]$STOP_TIME, "| duration",
-      values$opt[["header1"]]$TOT_DUR_HMS, "|", values$opt[["header1"]]$TOT_DUR_SEC, " secs |",
-      floor(values$opt[["header1"]]$TOT_DUR_SEC / values$elen), " epochs"
+      values$opt[["header1"]]$REC_DUR_HMS, "|", values$opt[["header1"]]$REC_DUR_SEC, " secs |",
+      floor(values$opt[["header1"]]$REC_DUR_SEC / values$elen), " epochs"
     )
   })
 
@@ -865,12 +867,13 @@ load.data <- observeEvent( values$file.details , {
 
     df <- values$opt[["header1"]]
     df$ID <- df$EDF_ID <- NULL
-    df <- df[, c("EDF_TYPE","NS","START_DATE","START_TIME","STOP_TIME","TOT_DUR_HMS","TOT_DUR_SEC","EPOCH","NR","REC_DUR") ]
+    df <- df[, c("EDF_TYPE","NS","START_DATE","START_TIME","STOP_TIME","REC_DUR_HMS","REC_DUR_SEC","EPOCH","TOT_DUR_HMS","TOT_DUR_SEC","NR","REC_DUR") ]
     df <- data.frame(t(df))
     df$VAR <- rownames(df)
     names(df) <- c("Value","Variable")
     df <- df[,c("Variable","Value")]
-    df$Variable <- c( "EDF type" , "Number of signals", "Start date", "Start time", "Stop time", "Duration (h:m:s)", "Duration (sec)", "Duration (epochs)", "Number of records", "Record duration (sec)" )  
+    df$Variable <- c( "EDF type" , "Number of signals", "Start date", "Start time", "Stop time", "Duration (h:m:s)", "Duration (sec)", "Duration (epochs)",
+     "Total duration (h:m:s)","Total duration (sec)", "Number of records", "Record duration (sec)" )  
 
     DT::datatable( df, 
       extensions = c("Buttons"),
@@ -1040,7 +1043,8 @@ load.data <- observeEvent( values$file.details , {
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE")]
+    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE","START_SEC")]
+    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
   })
@@ -1367,7 +1371,7 @@ load.data <- observeEvent( values$file.details , {
     df$STOP[df$STOP == df$START] <- df$STOP[df$STOP == df$START] + (1 / 3600)
     na <- length(unique(df$ANNOT))
 
-    # length of recording
+    # length of recording (based on /total/ duration)
     recdur.hrs <- values$opt[["header1"]]$TOT_DUR_SEC / 3600
     # main plot (-3600 puts 2 hr of time in the left axis for labels)
     par(mar = c(2.2, 0, 0, 0))
@@ -1856,29 +1860,26 @@ load.data <- observeEvent( values$file.details , {
 
     # use staging, if available
     if (values$hasstaging) {
-      plot(values$opt[["ss"]]$E[inc],
+      plot(values$opt[["ss"]]$START_SEC[inc],
         rep(0.5, length(values$opt[["ss"]]$E[inc])),
         col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
-        axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
-      )
+        axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i",
+	xlim = c(0 , values$opt[["init.secs"]]  ) )
     } else {
       # just fill in blank
-      plot(seq(1, values$opt[["ne"]]),
-        rep(0.5, values$opt[["ne"]]),
-        axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i"
-      )
+      dd <- seq(0, values$opt[["init.secs"]] , values$elen )
+      plot( dd , rep(0.5, length(dd) ), axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i" )
     }
   })
 
   output$signal.master2 <- renderPlot({
     req(values$hasdata)
     par(mar = c(0, 0, 0, 0))
-    plot(values$view[["epochs"]], c(0.5, 0.5),
+    plot(values$view[["secview"]], c(0.5, 0.5),
       col = "black", lwd = 5, type = "l", axes = F, ylab = "", xlab = "",
-      ylim = c(0, 1), xlim = c(1, values$opt[["ne"]]), xaxs = "i", yaxs = "i"
+      ylim = c(0, 1), xlim = c(0, values$opt[["init.secs"]] ), xaxs = "i", yaxs = "i"
     )
   })
-
 
   # ------------------------------------------------------------
   # primary signal plot
@@ -1888,9 +1889,6 @@ load.data <- observeEvent( values$file.details , {
       req( c(input$channels, input$annots) )
       req( length( input$channels ) != 0 || length(  input$annots ) != 0 )
 
-
-      # as order of updates if off (urgh... need to figure out a fix)
-      # here just make sure we actually have all required channels
       edf.chs <- lchs()
       edf.annots <- lannots()
       chk.chs <- length( input$channels ) == 0 || all( input$channels %in% edf.chs )
@@ -1900,12 +1898,12 @@ load.data <- observeEvent( values$file.details , {
       req( chk.chs )
       req( chk.annots )
       
-
       # all epochs
       dfe <- values$opt[["init.epochs"]][, c("START", "STOP")]
 
-      epochs <- values$view[["epochs"]]
-      zoom <- values$view[["zoom"]]
+      secview <- values$view[["secview"]]
+#     epochs <- values$view[["epochs"]]
+
       bp <- values$view[["bandpass"]]
       bpflt <- values$view[["bpflt"]]
 
@@ -1913,43 +1911,25 @@ load.data <- observeEvent( values$file.details , {
 
       isolate({
 
-        # epochs are the (30-second by default) spanning epochs which are fetched (that always)
-        # if zoom is defined, then back calculate
+	# default is to show first epoch secview = (0,30)
 
-        # should not happen, but if for some reason nothing is defined,
-        # display the first epoch:
+        # this table holds epoch/second offset information
+	# i.e. need this look-up to work for EDF+D
+        #    df <- values$opt[["init.epochs"]][, c("E", "HMS", "INTERVAL")]
 
-        if ( is.null(epochs) & is.null(zoom) ) {
-          epochs <- c(1, 1)
-	  sec1 <- df$START[ df$E == 1 ] 
-          zoom <- c(sec1, sec1+values$elen )
+        if ( is.null(secview) ) {
+          secview <- c(0,30) 
           values$view[["raw.signals"]] <- T
-        } else {
-          if (is.null(epochs)) {
-            epochs <- c(floor((zoom[1] /  values$elen ) + 1), floor((zoom[2] / values$elen ) + 1))
-          }
-
-         if (is.null(zoom)) {
-           zoom <- c((epochs[1] - 1) * values$elen, epochs[2] * values$elen )
- #         zoom <- c( df$START[ df$E == epochs[1] ] , df$
-          }
-
-          epochs <- c(floor(epochs[1]), ceiling(epochs[2]))
         }
 
         # compile final values: epochs and seconds (always round to nearest whole second)
-        secs <- c(floor(zoom[1]), ceiling(zoom[2]))
-
-        # we should now have a) the spanning epochs (for ldata() ) in values$view[[ "epochs" ]]
-        # and the range to display in values$view[[ "zoom" ]] (in seconds)
-
-#                      cat( "\n\nepochs : " , epochs , "\n" )
-#                      cat( "seconds: " , secs , "\n" )
+        secs <- c( floor( secview[1] ) , ceiling( secview[2] ) ) 
+        if ( secs[1] == secs[2] ) secs[2] <- secs[2] + 1
+	
+#        cat( "seconds: " , secs , "\n" )
 
         # update raw signals status as needed: if more than 5 mins, use summary stats
-        # 1 / 3 / 5 / 7 / 9
-        values$view[["raw.signals"]] <- (zoom[2] - zoom[1] ) < 5 * 60 
-#        cat(  zoom[1] , zoom[2] , "is zoomer\n" )
+        values$view[["raw.signals"]] <- (secs[2] - secs[1] ) < 5 * 60 
 	
         annots <- input$annots
         chs <-  input$channels 
@@ -1962,13 +1942,13 @@ load.data <- observeEvent( values$file.details , {
         #
 
         # room for text on left (but w/in plot),
-        # is 20% of main span
+        #   i.e. factor of 0.05 (5%) of the total width
         x0 <- secs[1] - (secs[2] - secs[1]) * 0.05
         xr <- range(x0, secs[2])
 
         # y-axis
-        cfac <- 3 # channel : annotation y-expansion factor
-        sfac <- 1.5 #           spanning factor (only for raw signals, not summ stats)
+        cfac <- 3    # channel : annotation y-expansion factor
+        sfac <- 1.5  #           spanning factor (only for raw signals, not summ stats)
 
         # i.e. give chs x3 vertical space; +1 is spacer
         yinc <- 1.0 / (cfac * nc + na + 1)
@@ -1999,29 +1979,16 @@ load.data <- observeEvent( values$file.details , {
           ), tick = F
         )
 
-
         #
         # Zoomed-in hypnogram at top
         #
+        stgs <- values$opt[["ss"]][,c("E","STAGE","START_SEC","STOP_SEC")]
+	stgs <- stgs[ stgs$START_SEC < secs[2] & stgs$STOP_SEC >= secs[1] , ]
+        if ( dim(stgs)[1] > 0 )
+          for (e in 1:(dim(stgs)[1]) )
+            rect(stgs$START_SEC[e], 0.99, stgs$STOP_SEC[e], 1.00, col = lstgcols(stgs$STAGE[e]), border = NA )
 
-        stgs <- values$opt[["ss"]]$STAGE
-        enum <- values$opt[["ss"]]$E
-
-        for (e in epochs[1]:epochs[2]) {
-          s <- secs[1] + (e - epochs[1]) * values$elen 
-          if (s < secs[2]) {
-            s_end <- s + values$elen
-            if (s_end > secs[2]) {
-              s_end <- secs[2]
-            }
-            rect(s, 0.99, s_end, 1.00,
-              col = lstgcols(stgs[enum == e]),
-              border = NA
-            )
-          }
-        }
-
-
+	
         #
         # Signals
         #
@@ -2032,18 +1999,16 @@ load.data <- observeEvent( values$file.details , {
           #
 
           if (values$view[["raw.signals"]]) {
+
             #
             # Pull raw signal data
             #
 
             yidx <- 0
             for (ch in rev(chs)) {
-              req(epochs[1] >= 1, epochs[2] <= values$opt[["ne"]])
-
-              qry <- list(range(dfe$START[epochs[1]], dfe$STOP[epochs[2]]))
-              dat <- ldata.intervals(qry, chs = ch)
-	      #print(head(dat))
-              dat <- dat[dat$SEC >= secs[1] & dat$SEC <= secs[2], ]
+              
+              dat <- ldata.intervals( list( secs ) , chs = ch)
+	      
               ts <- dat$SEC
               empty <- length(ts) == 0
 
@@ -2179,16 +2144,19 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$master_click, {
     if (is.null(input$master_brush)) {
       clear_sel_inst()
-      values$view[["epochs"]] <- c(floor(input$master_click$x), floor(input$master_click$x))
-      values$view[["zoom"]] <- NULL
+      s <- floor( input$master_click$x )
+      if ( s < values$elen / 2 ) {
+       values$view[["secview"]]  <- c( 0 , values$elen )
+      } else {
+       values$view[["secview"]] <- c( s - values$elen/2 , s + values$elen/2 )
+      }
     }
   })
 
   # double-click clears all
   observeEvent(input$master_dblclick, {
     clear_sel_inst()
-    values$view[["epochs"]] <- c(1, 1)
-    values$view[["zoom"]] <- NULL
+    values$view[["secview"]] <- c(0, values$elen ) 
   })
 
   # brush will zoom in to range of epochs
@@ -2196,14 +2164,13 @@ load.data <- observeEvent( values$file.details , {
     clear_sel_inst()
     brush <- input$master_brush
     if (!is.null(brush)) {
-      if (brush$xmin < 1 || brush$xmax > values$opt[["ne"]]) {
+      if (brush$xmin < 0 || brush$xmax > values$opt[["init.secs"]]) {
         session$resetBrush("master_brush")
       } else {
-        values$view[["epochs"]] <- c(brush$xmin, brush$xmax)
-        values$view[["zoom"]] <- NULL
-      }
+        values$view[["secview"]] <- c( brush$xmin, brush$xmax )
+       }
     } else {
-      values$view[["epochs"]] <- values$view[["zoom"]] <- NULL
+      values$secview[["secview"]] <- NULL
     }
   })
 
@@ -2212,8 +2179,7 @@ load.data <- observeEvent( values$file.details , {
     req(values$hasdata)
     session$resetBrush("master_brush")
     clear_sel_inst()
-    values$view[["epochs"]] <- c(1, values$opt[["ne"]])
-    values$view[["zoom"]] <- NULL
+    values$view[["secview"]] <- c(0 , values$opt[["init.secs"]] )
   })
 
   # shrink view
@@ -2221,22 +2187,24 @@ load.data <- observeEvent( values$file.details , {
     req(values$hasdata)
     session$resetBrush("master_brush")
     clear_sel_inst()
-    sz <- diff(values$view[["epochs"]])
-    if (sz > 1) values$view[["epochs"]] <- c(values$view[["epochs"]][1] + 1, values$view[["epochs"]][2] - 1)
-    if (sz == 1) values$view[["epochs"]] <- c(values$view[["epochs"]][1], values$view[["epochs"]][2] - 1)
-    values$view[["zoom"]] <- NULL
+    # current size, seconds
+    sz <- diff(values$view[["secview"]])
+    if ( sz > 1 ) { 
+     s1 <- max( 0 , values$view[["secview"]][1] + sz * 0.25 )
+     s2 <- min( values$opt[["init.secs"]] , values$view[["secview"]][2] - sz * 0.25 )
+     values$view[["secview"]] <- c( s1, s2 )
+    }
   })
 
   # expand view 1epoch either side
   observeEvent(input$winex, {
     req(values$hasdata)
     session$resetBrush("master_brush")
-    clear_sel_inst()
-    values$view[["epochs"]] <- c(
-      max(1, values$view[["epochs"]][1] - 1),
-      min(values$opt[["ne"]], values$view[["epochs"]][2] + 1)
-    )
-    values$view[["zoom"]] <- NULL
+    clear_sel_inst()    
+    sz <- diff(values$view[["secview"]])
+    s1 <- max( 0 , values$view[["secview"]][1] - sz * 0.25 )
+    s2 <- min( values$opt[["init.secs"]] , values$view[["secview"]][2] + sz * 0.25 )
+    values$view[["secview"]] <- c( s1, s2 )
   })
 
   # Apply bandpass filter to all signals
@@ -2255,97 +2223,67 @@ load.data <- observeEvent( values$file.details , {
   # drive by annotation instance box
   observeEvent(input$sel.inst, {
     xx <- range(as.numeric(unlist(strsplit(input$sel.inst, " "))))
+    # make window 1:1:1 , i.e. annot in center
     sz <- diff(xx)
-    xx <- c(floor(xx[1] / values$elen ) + 1, ceiling(xx[2] / values$elen ))
-    # if sz > 10 seconds, expand to 3 epochs if would
-    # otherwise have been a one-second view
-    if (sz > 10 & xx[1] == xx[2]) {
-      xx <- c(max(1, xx[1] - 1), min(values$opt[["ne"]], xx[2] + 1))
-    }
-    values$view[["epochs"]] <- xx
-    values$view[["zoom"]] <- NULL
+    values$view[["secview"]] <- c( max( 0 , xx[1] - sz * 1.00 ) , xx[2] + sz * 1.00 )  
     session$resetBrush("master_brush")
     session$resetBrush("zoom_brush")
-    #    session$setBrush(
-    #      brushId = "master_brush",
-    #      coords = list(xmin=xx[1], xmax=xx[2]) )
-    #      panel = 1
   })
 
   observeEvent(input$zoom_dblclick, {
     session$resetBrush("zoom_brush")
-    #    session$resetBrush( "master_brush" )
-    #    values$opt[[ "epochs" ]] = NULL
-    values$view[["zoom"]] <- NULL
+    # default to 30-second view centered around click point
+    xx <- values$view[["secview"]]
+    xx <- mean(xx)
+    xx <- c( xx-15 , xx+15 )
+    if ( xx[1] < 0 ) xx <- c(0,30) 
+    values$view[["secview"]] <- xx
   })
 
   observeEvent(input$zoom_brush, {
     brush <- input$zoom_brush
-    epochs <- values$view[["epochs"]]
-    if (!is.null(brush) && !(brush$xmin < (epochs[1] - 1) * values$elen || brush$xmax > epochs[2] * values$elen)) {
-      values$view[["zoom"]] <- c(brush$xmin, brush$xmax)
-    } else {
-      values$view[["zoom"]] <- NULL
-    }
+    values$view[["secview"]] <- c( brush$xmin , brush$xmax )
   })
 
 
   observeEvent(input$button_epoch_prv, {
     req(values$hasdata)
     clear_sel_inst()
-    curr_epochs <- values$view[["epochs"]]
-    values$view[["zoom"]] <- NULL
-    session$resetBrush("master_brush")
-    shft <- values$view[["epochs"]][2] - values$view[["epochs"]][1] + 1
-    values$view[["epochs"]] <- values$view[["epochs"]] - shft
-    values$view[["epochs"]][values$view[["epochs"]] < 1] <- 1
+    session$resetBrush("master_brush")    
+    shft <- values$view[["secview"]][2] - values$view[["secview"]][1]
+    values$view[["secview"]] <- values$view[["secview"]] - shft
+    if ( values$view[["secview"]][1] < 0 )
+       values$view[["secview"]] <- c(0 , shft )
   })
 
   observeEvent(input$button_epoch_nxt, {
     req(values$hasdata)
     clear_sel_inst()
-    curr_epochs <- values$view[["epochs"]]
-    values$view[["zoom"]] <- NULL
     session$resetBrush("master_brush")
-    shft <- values$view[["epochs"]][2] - values$view[["epochs"]][1] + 1
-    values$view[["epochs"]] <- values$view[["epochs"]] + shft
-    values$view[["epochs"]][values$view[["epochs"]] > values$opt[["ne"]]] <- values$opt[["ne"]]
+
+    shft <- values$view[["secview"]][2] - values$view[["secview"]][1]
+    values$view[["secview"]] <- values$view[["secview"]] + shft
+    if ( values$view[["secview"]][2] > values$opt[["init.secs"]] ) 
+       values$view[["secview"]] <- c(  values$opt[["init.secs"]] - shft ,  values$opt[["init.secs"]] )
   })
 
 
   output$info2 <-
-    renderText({
-      req(values$hasdata)
-
-      # zoom info to display?
-      zoom_info <- NULL
-
-      epochs <- values$view[["epochs"]]
-      if (is.null(epochs)) epochs <- c(1, 1)
-
-      all_good <- TRUE
-      max_epoch <- values$opt[["ne"]]
-      if ((epochs[1] < 1 || epochs[2] > max_epoch) && is.null(input$master_brush)) {
-        all_good <- FALSE
-      }
-      if ((epochs[1] < 1 || epochs[1] > max_epoch) && (epochs[2] < 1 || epochs[2] > max_epoch) && !is.null(input$master_brush)) {
-        all_good <- FALSE
-      }
-
-      if (all_good) {
-        str1 <- paste0(
-          "Epoch ", floor(epochs[1]), " - ", ceiling(epochs[2]),
-          " (", (ceiling(epochs[2]) - floor(epochs[1]) + 1) * 0.5, " mins)",
-          "\n",
-          ifelse(values$view[["bandpass"]], paste(
-            " (w/",
-            values$view[["bpflt"]][1], "-",
-            values$view[["bpflt"]][2], "Hz filter)"
-          ), " (unfiltered)")
-        )
-      } else {
-        paste0("Selected value is out of range")
-      }
+    renderUI({
+      req(values$hasdata, values$view[[ "secview" ]] )
+      stgs <- values$opt[["ss"]][,c("E","STAGE","START_SEC","STOP_SEC")]
+#      cat( "secs", values$view[[ "secview" ]] , "\n" )
+#      print(stgs)
+      stgs <- stgs[ stgs$START_SEC < values$view[[ "secview" ]][2] & stgs$STOP_SEC >= values$view[[ "secview" ]][1] , ]
+#      print(stgs)
+      empty <- dim(stgs)[1] == 0 
+      from.epoch <- ifelse( empty , -1 , min( stgs$E ) )
+      to.epoch <- ifelse( empty , -1 , max( stgs$E ) ) 
+      from.sec <- floor(  values$view[[ "secview" ]][1] )
+      to.sec <- ceiling( values$view[[ "secview" ]][2] )
+      HTML(paste( "Interval:" , from.sec , "-" , to.sec , "(",to.sec - from.sec,"secs )<br>",
+             "Epoch(s):", ifelse( empty , "N/A", ifelse( from.epoch == to.epoch , from.epoch , paste( from.epoch, "-" , to.epoch ) ) ) , "<br>" ,
+             ifelse(values$view[["bandpass"]], paste(" (w/", values$view[["bpflt"]][1], "-", values$view[["bpflt"]][2], "Hz filter)" ), " (unfiltered)") ) )
     })
 
 
@@ -2464,7 +2402,7 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$reset, {
     req(values$hasdata)
     leval("MASK clear")
-    lrefresh()
+    try( lrefresh() )
     init()
     update()
   })
