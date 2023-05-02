@@ -4,11 +4,11 @@ proxy:
     heartbeat-rate: 15000
     heartbeat-timeout: 3600000 # 1 Hour the time in milliseconds that the server must receive no heartbeat in order to terminate the proxy.
     port: 9191
-    template-path: ./templates/modified_navbar
+    template-path: ./templates/1col
     container-wait-time: 20000
     container-log-path: ./container-logs
     support:
-      mail-to-address: smpurcell@bwh.harvard.edu
+      mail-to-address: luna.remnrem@gmail.com
   
     authentication: none
     usage-stats-url: micrometer
@@ -18,13 +18,13 @@ proxy:
       cert-path: /home/none
       url: http://localhost:2375
       port-range-start: 20000
-      port-range-max: 20009
+      port-range-max: 20016
 
     specs:
     - id: moonlight
       display-name: Moonlight
       container-cmd: ["R", "-e", "shiny::runApp('/root/moon')"]
-      container-image: moonlight-mar22-2023
+      container-image: moonlight-moonbeam-may02-2023
       max-instances: 1
 
 management:
