@@ -1,8 +1,8 @@
 proxy:
     title:
     landing-page: /
-    heartbeat-rate: 15000
-    heartbeat-timeout: 3600000 # 1 Hour the time in milliseconds that the server must receive no heartbeat in order to terminate the proxy.
+    heartbeat-rate: 10000
+    heartbeat-timeout: 1800000 # 30 min the time in milliseconds that the server must receive no heartbeat in order to terminate the proxy.
     port: 9191
     template-path: ./templates/1col
     container-wait-time: 20000

@@ -48,3 +48,20 @@ mark {background: lightgray!important}
     max-width: 100%;
     max-height: 100vh;
 }
+
+.float-right{
+  float:right;
+}
+
+.right-space{
+  padding-right:10px;
+}
+
+.container {
+  passing-right: 15px;
+  margin-left: 0px;
+}
+
+#applist {
+  margin-top: 0px;
+}
