@@ -65,3 +65,7 @@ mark {background: lightgray!important}
 #applist {
   margin-top: 0px;
 }
+
+p {
+  margin: 1px 10px;
+}
