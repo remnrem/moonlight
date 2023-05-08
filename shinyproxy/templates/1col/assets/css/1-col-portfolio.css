@@ -69,3 +69,11 @@ mark {background: lightgray!important}
 p {
   margin: 1px 10px;
 }
+
+body {
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #333;
+    background-color: #fff;
+}
