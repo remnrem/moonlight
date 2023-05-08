@@ -74,6 +74,9 @@ roots <- c( wd = '~' , data = "/data" )
 
 server <- function(input, output, session ) {
 
+hideTab(inputId = "maintabs", target = "Moonbeam")
+
+
 # ------------------------------------------------------------
 # moonlock to prevent new libraries from starting within the
 # same R process
@@ -88,8 +91,8 @@ moonlock <- paste0( sample( LETTERS , 20 ) , collapse=""  )
 if ( ! lmoonlock( moonlock ) )
 {
   showModal(modalDialog(
-     title = "Please do not refresh your browser or open Moonlight in new tabs", 
-     "To refresh, use the lower left 'Refresh' button. If this is a new browser tab, please close it. Running multiple Moonlight apps in the same browser is not supported and may corrupt data" 
+     title = "Multiple Moonlight instances are active on this machine", 
+     "Please do not refresh your browser or open Moonlight in new tabs. To refresh, use the lower left 'Refresh' button. If this is a new browser tab, please close it (or the original tab).  Running multiple Moonlight apps in the same browser is not supported and may corrupt data if changes are made concurrently in multiple windows." 
     ))
 }
 
@@ -99,7 +102,7 @@ if ( ! lmoonlock( moonlock ) )
 # main data store for derived results
 
 values <- reactiveValues( opt = list() )
-
+values$mb.nsrr <- F    
 
 
 # ------------------------------------------------------------
@@ -155,6 +158,9 @@ observeEvent( input$lfiles , {
 # handle uploads from standard (clientside) fileInput
 
 observeEvent( input$files , { 
+
+  values$mb.nsrr = F
+
   values$file.details <- NULL
 
   edf.name <- edf.path <- NULL
@@ -259,8 +265,9 @@ values$file.details <-
 # initiate from NSRR upload (Moonbeam)
 
 
-observeEvent( input$nsrr.upload , {
- req( input$nsrr.indivs )
+observeEvent( values$nsrr.indivs , { 
+ req( values$nsrr.indivs )
+
  cat("initiating NSRR moonbeam..." )
 
  values$mb.nsrr = T
@@ -270,8 +277,8 @@ observeEvent( input$nsrr.upload , {
  annot.path = NULL 
 
  # get all files for this indiv
- files <- values$mb.indivs[ values$mb.indivs[,2] == input$nsrr.indivs ,3 ]
- cat( "found", length(files) , "for individual" , input$nsrr.indivs , "\n" )
+ files <- values$mb.indivs[ values$mb.indivs[,2] == values$nsrr.indivs ,3 ]
+ cat( "found", length(files) , "for individual" , values$nsrr.indivs , "\n" )
  req( length( files ) > 0 )
  
  # get EDF - should have exactly 1 - either .edf or .edf.gz
@@ -307,7 +314,7 @@ observeEvent( input$nsrr.upload , {
    cat( "beaming:", url , "\n" )
    curl_download( url , tmp )
    if ( file.exists( tmp ) ) {
-      edf.name = paste( input$nsrr.indivs , ifelse( is.gz , "edf.gz"  , "edf" ), sep="." ) 
+      edf.name = paste( values$nsrr.indivs , ifelse( is.gz , "edf.gz"  , "edf" ), sep="." ) 
       edf.path = tmp
    }
  })
@@ -339,13 +346,32 @@ observeEvent( input$nsrr.upload , {
     tmp <- tempfile( fileext = atype )
     curl_download( url , tmp )
     if ( file.exists( tmp ) ) {
-      annot.name = paste( input$nsrr.indivs , atype , sep="" )
+      annot.name = paste( values$nsrr.indivs , atype , sep="" )
       annot.path = tmp
     }
    }
  })
  }
-   
+
+
+ # update phenotypes
+ url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&c=", input$nsrr.cohorts , "&p=" , values$nsrr.indivs , sep="" )
+ cat( "beaming:", url , "\n" )
+ tmp <- tempfile( fileext = ".txt" )
+# cat("phenotype file" , tmp , "\n" )
+ curl_download( url , tmp )
+ if ( file.exists( tmp ) ) {
+    retval <- try( df <- read.table( tmp , header=F , sep="\t" ) )
+    if ( class( retval) != "try-error" ) {
+       values$moonbeam.phenofile <- tmp
+       showTab(inputId = "maintabs", target = "Moonbeam")
+      } else {
+       values$moonbeam.phenofile <- NULL
+       #hideTab(inputId = "maintabs", target = "Moonbeam")
+      }
+ }
+
+ # clean up
  removeModal()
 
  cat( "EDF temp file path:" , edf.path , "\n" )
@@ -363,12 +389,39 @@ values$file.details <-
 } )
 
 
+output$moonbeam.pheno <- DT::renderDataTable({
+  req(values$moonbeam.phenofile )
+
+  df <- read.table( values$moonbeam.phenofile , quote="", header=F , stringsAsFactors=F , sep="\t" , comment.char= "" )
+
+  names(df) <- c("Variable","Value","Units","Description")
+  df[is.na(df)] <- "."
+
+  pri <- c("nsrr_age","nsrr_sex","nsrr_bmi","nsrr_flag_spsw","nsrr_ahi_hp3u","nsrr_ahi_hp4r")
+  q <- match( pri , df$Variable ) 
+  q <- q[ ! is.na(q) ] 
+  df <- rbind( df[ q , ] , df[ -q , ] )  
+  DT::datatable( df , escape = F, rownames = F ,
+       options = list(
+        scrollY = "380px",
+        scrollX = "100%",
+        buttons = list(list(extend = "copy", text = "Copy")),
+	paging = F, ordering = F,
+	info = T,
+        searching = T,	
+        columnDefs = list(list(className = "dt-center", targets = 0:2) ) ) )
+})
+	
+
 
 # ------------------------------------------------------------
 # initiate view w/ an example dataset
 
 observeEvent(input$load.default, {
-values$file.details <-
+ values$mb.nsrr = F
+ hideTab(inputId = "maintabs", target = "Moonbeam")
+
+ values$file.details <-
  list( edf.name = "learn-nsrr02.edf" ,
        edf.path = "data/learn-nsrr02.edf" ,
        annot.names = "learn-nsrr02.xml" ,
@@ -384,7 +437,12 @@ values$file.details <-
 load.data <- observeEvent( values$file.details , {
 
 # switch to header panel
+ if ( values$mb.nsrr ) {
+  updateTabsetPanel(session, "maintabs", selected = "Moonbeam" )
+ } else {
   updateTabsetPanel(session, "maintabs", selected = "Header" )
+  hideTab(inputId = "maintabs", target = "Moonbeam")
+ }
 
 # pull filenames
   edf.name <- values$file.details[[ "edf.name" ]]
@@ -3352,17 +3410,17 @@ observeEvent(input$moonbeam, {
   showModal(modalDialog(
      title = "Moonbeam",
      tabsetPanel( id = "moonbeam.tabs", 
+      tabPanel( "NSRR" , value = "nsrr" , 
+         fluidRow(
+          column( 4, passwordInput("nsrr.token", "NSRR token (http://sleepdata.org/token)" , value = values$mb.token ) ),
+	  column( 5, selectInput("nsrr.cohorts",label="Cohorts",choices=setNames( as.list( values$mb.cohorts[,1] ) , values$mb.cohorts[,2] ) ,multiple = F,selectize = T, selected=input$nsrr.cohorts , width="100%") ),
+          column( 3, selectizeInput("nsrr.indivs",label="Individuals",choices= unique(values$mb.indivs[,2]) ,multiple = F , options = list( maxOptions = 10000 ) ) ) ),
+         fluidRow( column( 2 ,  actionButton("nsrr.login", "Authenticate") ) , column( 7 , textOutput("nsrr.accnt") ) , column(1,actionButton("nsrr.upload", "Import")  ) ) 
+	 ),
        tabPanel( "User URLs" , value = "user" , 
          textInput("edf.url", "EDF URL",width='100%' ),
          textInput("annot.url", "Annotation URL",width='100%'),
-         actionButton("user.upload", "Upload") ),
-       tabPanel( "NSRR" , value = "nsrr" , 
-         fluidRow(
-          column( 4, textInput("nsrr.token", "NSRR token (http://sleepdata.org/token)" , value = values$mb.token ) ),
-	  column( 4, selectInput("nsrr.cohorts",label="Cohorts",choices=setNames( as.list( values$mb.cohorts[,1] ) , values$mb.cohorts[,2] ) ,multiple = F,selectize = T) ),
-          column( 4, selectInput("nsrr.indivs",label="Individuals",choices= unique(values$mb.indivs[,2]) ,multiple = F,selectize = T) ) ),
-         fluidRow( column( 2 ,  actionButton("nsrr.login", "Authenticate") ) , column( 6 , textOutput("nsrr.accnt") ) , column(2,actionButton("nsrr.upload", "Upload")  ) ) 
-	 )
+         actionButton("user.upload", "Import") ),
 	),         
    footer = tagList( modalButton("Cancel") ) ,
    size = "l" )
@@ -3393,7 +3451,8 @@ observeEvent( input$nsrr.login , {
    })
  if ( ! okay ) {
   updateSelectInput( session, "nsrr.cohorts", choices = list() , label = "Cohorts" , selected = 0 )
-  updateSelectInput( session, "nsrr.indivs", choices = list() , label = "Individuals" , selected = 0 )
+  updateSelectizeInput( session, "nsrr.indivs", choices = list() , label = "Individuals" , selected = 0 , server = TRUE )
+  updateSelectizeInput( session, "moonbeam.indivs", choices = list() , label = "Individuals" , selected = 0 , server = TRUE )
  }
  })
 
@@ -3407,12 +3466,24 @@ observeEvent( input$nsrr.cohorts , {
     if ( file.exists( tmp ) ) {
       df <- read.table( tmp , header=F , sep="\t" )
       ids <- unique( df[,2] ) 
-      updateSelectInput( session, "nsrr.indivs", choices = ids , label = paste( length(ids),"individuals") , selected = ids[1] )
+      updateSelectizeInput( session, "nsrr.indivs", choices = ids , label = paste( length(ids),"records") , selected = which( ids == input$nsrr.indivs ) , server = TRUE )
+      updateSelectizeInput( session, "moonbeam.indivs", choices = ids , label = paste( length(ids),"records") , selected = which( ids == input$nsrr.indivs ), server = TRUE )
       # save MB all indivs & all files
-      values$mb.indivs = df
+      values$mb.indivs = df      
     }
    })
 })
+
+
+observeEvent( input$moonbeam.indivs , {
+ values$nsrr.indivs = input$moonbeam.indivs
+})
+
+observeEvent( input$nsrr.upload , {
+ values$nsrr.indivs = input$nsrr.indivs
+ updateSelectizeInput( session, "moonbeam.indivs", selected = values$nsrr.indivs , label = paste( "Cohort:", input$nsrr.cohorts ) ) 
+})
+
 
 
 

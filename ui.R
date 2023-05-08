@@ -155,6 +155,14 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
       div(style = "margin-top: 10px"),
 
    tabsetPanel( id = "maintabs" ,
+
+       tabPanel(
+          "Moonbeam" ,           
+	   selectizeInput("moonbeam.indivs",label="Individuals", choices= NULL , multiple = F , options = list( maxOptions = 10000 ) ),
+	   hr(),
+	   DT::dataTableOutput( "moonbeam.pheno" ) 
+         ), 
+
        tabPanel( "Headers" ,
 	    fluidRow( column( 4 , DT::dataTableOutput("table.header3") ) ,
 	              column( 8 , DT::dataTableOutput("table.header2" ) ) )
@@ -466,6 +474,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
             )
           )
         )
+	
       )
     )
   )
