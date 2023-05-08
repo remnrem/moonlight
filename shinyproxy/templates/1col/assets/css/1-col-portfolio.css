@@ -1,0 +1,71 @@
+/**
+ * ShinyProxy
+ *
+ * Copyright (C) 2016-2018 Open Analytics
+ *
+ * ===========================================================================
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the Apache License as published by
+ * The Apache Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * Apache License for more details.
+ *
+ * You should have received a copy of the Apache License
+ * along with this program.  If not, see <http://www.apache.org/licenses/>
+ */
+
+body {
+    padding-top: 0px; /* Required padding for .navbar-fixed-top. Remove if using .navbar-static-top. Change if height of navigation changes. */
+}
+
+a {font-size: 30px}
+
+footer {
+    margin: 50px 0;
+}
+.img-responsive { 
+	max-height: 300px;
+}
+
+u {
+  text-decoration: underline;
+  text-decoration-color: #159CEE;
+}
+
+mark {background: lightgray!important}
+
+.imgbox {
+    display: grid;
+    height: 100%;
+}
+
+.center-fit {
+    max-width: 100%;
+    max-height: 100vh;
+}
+
+.float-right{
+  float:right;
+}
+
+.right-space{
+  padding-right:10px;
+}
+
+.container {
+  passing-right: 15px;
+  margin-left: 0px;
+}
+
+#applist {
+  margin-top: 0px;
+}
+
+p {
+  margin: 1px 10px;
+}

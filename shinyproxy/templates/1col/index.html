@@ -1,0 +1,137 @@
+<!--
+
+    ShinyProxy
+
+    Copyright (C) 2016-2021 Open Analytics
+
+    ===========================================================================
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the Apache License as published by
+    The Apache Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    Apache License for more details.
+
+    You should have received a copy of the Apache License
+    along with this program.  If not, see <http://www.apache.org/licenses/>
+
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+>
+<head lang="en">
+    <title th:text="${title}"></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <link rel="stylesheet" media="screen" th:href="@{${resourcePrefix} + ${bootstrapCss}}"/>
+    <link rel="stylesheet" media="screen" th:href="@{${resourcePrefix} + '/css/default.css'}"/>
+    <link rel="stylesheet" media="screen" th:href="@{/assets/css/1-col-portfolio.css}"/>
+    <script th:src="@{${resourcePrefix} + ${jqueryJs}}"></script>
+    <script th:src="@{${resourcePrefix} + ${bootstrapJs}}"></script>
+    <script th:src="@{${resourcePrefix} + ${handlebars}}"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.app.js' }"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.api.js' }"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.connections.js'}"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.instances.js' }"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.ui.js' }"></script>
+    <script th:src="@{${resourcePrefix} + '/js/shiny.common.js'}"></script>
+    <script th:src="@{${resourcePrefix} + '/handlebars/precompiled.js'}"></script>
+</head>
+<body>
+<!-- navigation bar -->
+<body>
+<div class="imgbox">
+    <img class="center-fit" src='../assets/img/moonlight.png'>
+</div>
+</body>
+
+<div th:replace="fragments/navbar :: navbar"></div>
+	<div class="logo"></div>
+	<div class="container" id="applist">
+		<div th:each="app: ${apps}">
+			<div class="row" >
+				<div class="col-md-5">
+					<h3 th:text="${app.displayName == null} ? ${app.id} : ${app.displayName}"></h3>
+					<a class="btn btn-primary" 
+					th:href="@{/app/}+${app.id}" target="_blank" style="font-size:20px;font-family:Helvetica">Start<span class="glyphicon glyphicon-chevron-right"></span>
+					</a>
+				</div>
+			</div>
+			<hr></hr>
+		</div>
+	</div>
+
+	<p style="font-family:Helvetica;font-size:130%;">
+	Moonlight is a Luna-based interactive viewer for EDF signal and annotations, specifically designed for polysomnographic data.</br>
+	As well as visualization, Moonlight supports basic analyses and manipulation of sleep signals, a range of summary statistics and <br>
+	hypnogram-based analyses including automated staging.
+	</p>
+
+	<p>
+		<b style="color:#000080;font-size:130%;font-family:Helvetica">For brief tour visit </b>
+		<a 
+		href="https://zzz.bwh.harvard.edu/luna/moonlight" target="_blank"><u><span style="color:#159CEE;font-size:20px;font-family:Helvetica;">zzz.bwh.harvard.edu/luna</span></u>
+		</a>
+	</p>
+
+	<p style="font-family:Helvetica;font-size:130%;">
+	The <SPAN STYLE="font-family:'Times New Roman'">remnrem.net</SPAN> AWS-hosted instance only supports 15 concurrent connections. If you see the message:<br>
+	<b style="font-size:90%;">  Cannot create container: all allocated ports are currently in use.</b></br>
+	Please try again later or run Moonlight locally (see below). If the problem persists, contact <u><span style="color:#159CEE;font-size:20px;font-family:Helvetica;">luna.remnrem@gmail.com</span></u>
+	</p>
+
+    <br>
+
+    <p>	
+	<b style="color:#000080;font-size:130%;font-family:Helvetica">Running Moonlight locally (via Docker) </b>
+    </p>
+	
+	<p style="font-family:Helvetica;font-size:130%;">
+	Moonlight is also distributed as a containerized application that can be run locally using Docker.<br>
+	Once you have Docker Desktop installed, first pull the moonlight image from Dockerhub:<br>
+
+	<mark>docker pull remnrem/moonlight</mark>
+	<br>
+	<br>
+
+	To run moonlight:<br>
+	<mark>docker run -it --rm -p 3838:3838 remnrem/moonlight</mark>
+	<br>
+	<br>
+
+	and use your browser to visit: 
+    <a href="http://127.0.0.1:3838/" target="_blank"><u><span style="color:#159CEE;font-size:20px;font-family:Helvetica;">http://127.0.0.1:3838/</span></u></a>
+	</p>
+
+        
+	<div th:if="${myAppsMode == 'Inline'}" class="col-md-5 col-lg-4 col-xs-12 myApps-inline">
+            <div class="myApps-title">
+                <h4>My apps</h4>
+            </div>
+            <div id="myApps" class="myApps">
+            </div>
+            <div class="myApps-footer">
+                <button onclick="Shiny.common.onStopAllApps();" id="stop-all-apps-btn" type="button"
+                        class="btn pull-left btn-danger">Stop all apps
+                </button>
+                <button type="button" disabled class="btn pull-left btn-danger" id="stopping-all-apps-btn">Stopping
+                    all apps...
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="fragments/modal :: modal"></div>
+
+<script type="text/javascript" th:inline="javascript">
+    $(window).on('load', function () {
+	window.Shiny.common.init([[${contextPath}]], [[${application_name}]], [[${spInstance}]], [[${appMaxInstances}]], [[${myAppsMode}]], [[${pauseSupported}]]);
+	window.Shiny.common.startIndex();
+    });
+</script>
+</body>
+</html>
