@@ -618,8 +618,16 @@ load.data <- observeEvent( values$file.details , {
 
     ret <- leval("HYPNO epoch")
 
-    values$hasstaging <- !is.null(lstages())
-    
+    # to count as having 'staging', we need at least two different, w/ at least 10 epochs
+    stgs <- lstages()
+    values$hasstaging <- !is.null( stgs )
+    values$variable.staging <- F
+    if ( values$hasstaging ) {      
+     stgs <- stgs[ stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W" ]
+     nstgs10 <- sum( table( stgs ) >= 10 ) 
+     values$variable.staging <- nstgs10 >= 2 
+    }
+
     if (values$hasstaging) {
       values$opt[["hypno.stats"]] <- ret$HYPNO$BL
       values$opt[["hypno.epochs"]] <- ret$HYPNO$E
@@ -651,9 +659,18 @@ load.data <- observeEvent( values$file.details , {
   # update hypnogram
 
   update.hypnogram <- function() {
-    req(values$hasstaging)
+    req( values$hasstaging )
 
-    ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = ""))
+    try( ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")) )
+
+    # to count as having 'staging', we need at least two different, w/ at least 10 epochs
+    stgs <- ret$HYPNO$E$STAGE 
+    stgs <- stgs[ stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W" ]
+    nstgs10 <- sum( table( stgs ) >= 10 ) 
+    values$variable.staging <- nstgs10 >= 2 
+    cat( "updating hypnogram: variable.staging =" , values$variable.staging  , "\n" ) 
+
+    req( values$variable.staging )
     
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
@@ -1138,7 +1155,7 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging)
+    req(values$hasedf, values$hasstaging, values$variable.staging )
  
     m <- as.data.frame(matrix(
       c(
@@ -1203,7 +1220,7 @@ load.data <- observeEvent( values$file.details , {
 
 
   output$table.hypno.times <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging)
+    req(values$hasedf, values$hasstaging , values$variable.staging )
 
      m <- as.data.frame(matrix(
       c(
@@ -1219,7 +1236,8 @@ load.data <- observeEvent( values$file.details , {
     ))
     m$HMS <- as.character(values$opt[["hypno.stats"]][, gsub("X", "HMS", m[, 1])])
     m$E <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "E", m[, 1])]), 3)
-    m$T <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "T", m[, 1])]), 3)
+#    m$T <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "T", m[, 1])]), 3)
+    m$EPOCH <- floor( m$E*2 ) + 1
 
     DT::datatable(m,
       options = list(
@@ -1231,7 +1249,7 @@ load.data <- observeEvent( values$file.details , {
         columnDefs = list(list(className = "dt-left", targets = "_all"))
       ),
       rownames = FALSE,
-      colnames = c("Time-point", "Description", "Clock-time", "Elapsed (mins)", "Time past prior midnight (hrs)")
+      colnames = c("Time-point", "Description", "Clock-time", "Elapsed (mins)", "Epoch")
     )
   })
 
@@ -1242,7 +1260,7 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno.stages <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging)
+    req(values$hasedf, values$hasstaging, values$variable.staging )
 
     dt <- values$opt[["hypno.stages"]]
     dt <- dt[dt$SS %in% c("?", "N1", "N2", "N3", "R", "S", "W", "WASO"), ]
@@ -1268,7 +1286,7 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno.cycles <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging)
+    req(values$hasedf, values$hasstaging, values$variable.staging )
     dt <- values$opt[["hypno.cycles"]]
     dt$NUM <- 1:(dim(dt)[1])
     dt <- dt[, c("NUM", "NREMC_START", "NREMC_N", "NREMC_MINS", "NREMC_NREM_MINS", "NREMC_REM_MINS")]
@@ -1290,7 +1308,7 @@ load.data <- observeEvent( values$file.details , {
   # Hypnogram epoch-statistics
 
   output$table.hypno.epochs <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging)
+    req(values$hasedf, values$hasstaging, values$variable.staging  )
 
     dt <- values$opt[["hypno.epochs"]]
     dt <- dt[, c("E", "CLOCK_TIME", "MINS", "STAGE", "CYCLE", "PERSISTENT_SLEEP", "WASO", "E_N1", "E_N2", "E_N3", "E_REM", "E_SLEEP", "E_WASO")]
@@ -1529,6 +1547,8 @@ load.data <- observeEvent( values$file.details , {
   # SOAP
 
   observeEvent(input$soap.run, {
+    req( values$hasstaging )
+    req( values$variable.staging )
     req(values$hasdata, input$soap.ch , values$opt[[ "maskset" ]] == F )
     req(length(unique(values$opt[["ss"]]$STAGE[values$opt[["ss"]]$E %in% values$opt[["included"]]])) >= 2)
     req( values$elen == 30 )
