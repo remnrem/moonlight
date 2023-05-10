@@ -397,7 +397,8 @@ output$moonbeam.pheno <- DT::renderDataTable({
   names(df) <- c("Variable","Value","Units","Description")
   df[is.na(df)] <- "."
 
-  pri <- c("nsrr_age","nsrr_sex","nsrr_bmi","nsrr_flag_spsw","nsrr_ahi_hp3u","nsrr_ahi_hp4r")
+  pri <- c("nsrr_age","nsrr_sex","nsrr_bmi","nsrr_flag_spsw","nsrr_ahi_hp3r_aasm15","nsrr_ahi_hp4u_aasm15")
+
   q <- match( pri , df$Variable ) 
   q <- q[ ! is.na(q) ] 
   df <- rbind( df[ q , ] , df[ -q , ] )  
@@ -1587,7 +1588,7 @@ load.data <- observeEvent( values$file.details , {
 
 
   output$table.soap <- DT::renderDataTable({
-    req(values$hasdata, values$hasstaging, values$soap)
+    req(values$hasdata, values$hasstaging, values$variable.staging,  values$soap)
 
     df <- values$soap[["soap"]]
     df$ID <- NULL
@@ -1785,7 +1786,7 @@ load.data <- observeEvent( values$file.details , {
   })
 
   output$table.pops <- DT::renderDataTable({
-    req(values$hasdata, values$hasstaging, values$pops)
+    req(values$hasdata, values$hasstaging, values$variable.staging, values$pops)
     df <- values$pops[["pops"]]
     df$ID <- NULL
     df <- df[, c("K", "K3", "ACC", "ACC3")]
@@ -1808,7 +1809,7 @@ load.data <- observeEvent( values$file.details , {
   })
 
   output$table.pops.stages <- DT::renderDataTable({
-    req(values$hasdata, values$hasstaging, values$pops)
+    req(values$hasdata, values$hasstaging, values$variable.staging, values$pops)
 
     df <- values$pops[["pops.stages"]]
     df <- df[, c("SS", "ORIG", "PRF", "F1")]
