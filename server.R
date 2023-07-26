@@ -366,6 +366,7 @@ observeEvent( values$nsrr.indivs , {
        values$moonbeam.phenofile <- tmp
        showTab(inputId = "maintabs", target = "Moonbeam")
       } else {
+       cat("no phenotypes\n")
        values$moonbeam.phenofile <- NULL
        #hideTab(inputId = "maintabs", target = "Moonbeam")
       }
@@ -401,7 +402,7 @@ output$moonbeam.pheno <- DT::renderDataTable({
 
   q <- match( pri , df$Variable ) 
   q <- q[ ! is.na(q) ] 
-  df <- rbind( df[ q , ] , df[ -q , ] )  
+  if ( length(q) > 0 ) df <- rbind( df[ q , ] , df[ -q , ] )  
   DT::datatable( df , escape = F, rownames = F ,
        options = list(
         scrollY = "380px",
