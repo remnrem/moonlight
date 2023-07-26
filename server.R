@@ -361,7 +361,7 @@ observeEvent( values$nsrr.indivs , {
 # cat("phenotype file" , tmp , "\n" )
  curl_download( url , tmp )
  if ( file.exists( tmp ) ) {
-    retval <- try( df <- read.table( tmp , header=F , sep="\t" ) )
+    retval <- try( df <- read.table( tmp , header=F , sep="\t" , quote="" ) )
     if ( class( retval) != "try-error" ) {
        values$moonbeam.phenofile <- tmp
        showTab(inputId = "maintabs", target = "Moonbeam")
@@ -3461,7 +3461,7 @@ observeEvent( input$nsrr.login , {
    curl_download( url , tmp )
    
     if ( file.exists( tmp ) ) {
-      retval <- try( df <- read.table( tmp , header=F , sep="\t" ) )
+      retval <- try( df <- read.table( tmp , header=F , sep="\t" , quote = "" ) )
       if ( class( retval) != "try-error" ) {
         dnames <- setNames( as.list( df[,1] ) , df[,2] ) 
        updateSelectInput( session, "nsrr.cohorts", choices = dnames , label = paste( length(dnames),"cohorts") , selected = df[1,1] )
