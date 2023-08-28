@@ -25,12 +25,13 @@ library(luna)
 library(shinybusy)
 library(DT)
 library(curl)
+library(shinyjs)
 
 # ------------------------------------------------------------
 # Options
 
 # Max EDF file size ( default = 200Mb ) here --> 3G
-options(shiny.maxRequestSize = 2000 * 1024^2)
+options(shiny.maxRequestSize = 4000 * 1024^2)
 
 # set error handler for lunaR
 lmoonlight_mode()
@@ -63,7 +64,7 @@ pal10 <- c(
 # shinyFiles reading from host filesystem
 
 
-roots <- c( wd = '~' , data = "/data" ) 
+roots <- c(wd = "~", data = "/data")
 
 
 # ------------------------------------------------------------
@@ -72,518 +73,520 @@ roots <- c( wd = '~' , data = "/data" )
 #
 # ------------------------------------------------------------
 
-server <- function(input, output, session ) {
+server <- function(input, output, session) {
+  hideTab(inputId = "maintabs", target = "Moonbeam")
 
-hideTab(inputId = "maintabs", target = "Moonbeam")
 
+  # ------------------------------------------------------------
+  # moonlock to prevent new libraries from starting within the
+  # same R process
 
-# ------------------------------------------------------------
-# moonlock to prevent new libraries from starting within the
-# same R process
+  cat("\n\n --- Starting a new server instance --- \n\n")
 
-cat("\n\n --- Starting a new server instance --- \n\n" )
+  # generate a random string to uniquely identify this session
+  moonlock <- paste0(sample(LETTERS, 20), collapse = "")
 
-# generate a random string to uniquely identify this session
-moonlock <- paste0( sample( LETTERS , 20 ) , collapse=""  ) 
-
-# test whether lunaR has already been assigned a value
-# if so, give an error
-if ( ! lmoonlock( moonlock ) )
-{
-  showModal(modalDialog(
-     title = "Multiple Moonlight instances are active on this machine", 
-     "Please do not refresh your browser or open Moonlight in new tabs. To refresh, use the lower left 'Refresh' button. If this is a new browser tab, please close it (or the original tab).  Running multiple Moonlight apps in the same browser is not supported and may corrupt data if changes are made concurrently in multiple windows." 
+  # test whether lunaR has already been assigned a value
+  # if so, give an error
+  if (!lmoonlock(moonlock)) {
+    showModal(modalDialog(
+      title = "Multiple Moonlight instances are active on this machine",
+      "Please do not refresh your browser or open Moonlight in new tabs. To refresh, use the lower left 'Refresh' button. If this is a new browser tab, please close it (or the original tab).  Running multiple Moonlight apps in the same browser is not supported and may corrupt data if changes are made concurrently in multiple windows."
     ))
-}
-
- 
-
-# ------------------------------------------------------------
-# main data store for derived results
-
-values <- reactiveValues( opt = list() )
-values$mb.nsrr <- F    
-
-
-# ------------------------------------------------------------
-# attach EDFs & annotations from shinyfiles input (local upload)
-
-shinyFileChoose(input, 'lfiles',
-                roots = roots, 
-		filetypes=c('', 'txt','edf','annot','xml','eannot','csv','tsv'))
-
-observeEvent( input$lfiles , {
-  req( ! is.integer( input$lfiles ) )
-
-   df <- parseFilePaths( roots , input$lfiles )
-   df$name <- as.character( df$name )
-   df$datapath <- as.character( df$datapath )
- 
-   # set to null
-   values$file.details <- NULL
-   edf.name <- edf.path <- NULL
-   annot.names <- annot.paths <- NULL
-
-   # take a single EDF
-   idx <- grep(".edf", ignore.case = T, df$name)
-   if ( length(idx) >= 1 ) {
-     edf.name <- df$name[idx[1]]
-     edf.path <- df$datapath[idx[1]]
-   }
-
-  cat( "edf.name" , edf.name , "\n" )
-  cat( "edf.path" , edf.path , "\n" )
-  
-  # take 1 or more annotation files (XML, .annot or .eannot)
-  idx <- c(
-     grep(".xml", ignore.case = T, df$name),
-     grep(".annot", ignore.case = T, df$name),
-     grep(".eannot", ignore.case = T, df$name) )
-
-  if ( length(idx) >= 1 ) {
-    annot.names <- df$name[idx]
-    annot.paths <- df$datapath[idx]
   }
 
-  # trigger load data
-  values$file.details <- list( edf.name = edf.name ,
-                               edf.path = edf.path ,
-			       annot.names = annot.names ,
-			       annot.paths = annot.paths )
-
-} )
 
 
-# ------------------------------------------------------------
-# handle uploads from standard (clientside) fileInput
+  # ------------------------------------------------------------
+  # main data store for derived results
 
-observeEvent( input$files , { 
-
-  values$mb.nsrr = F
-
-  values$file.details <- NULL
-
-  edf.name <- edf.path <- NULL
-  annot.names <- annot.paths <- NULL
-
-  # single EDF  
-  idx <- grep(".edf", ignore.case = T, input$files$name)
-  if ( length(idx) >= 1 ) {
-    edf.name <- input$files$name[idx[1]]
-    edf.path <- input$files$datapath[idx[1]]
-  }
-
-  # 1 or more annotation files
-  idx <- c(
-     grep(".xml", ignore.case = T, input$files$name),
-     grep(".annot", ignore.case = T, input$files$name),
-     grep(".eannot", ignore.case = T, input$files$name) )
-
-  if ( length(idx) >= 1 ) {
-    annot.names <- input$files$name[idx]
-    annot.paths <- input$files$datapath[idx]
-  }
-
-  # trigger load data
-  
-  values$file.details <- list( edf.name = edf.name ,
-                               edf.path = edf.path ,
-			       annot.names = annot.names ,
-			       annot.paths = annot.paths )
-  
-})
+  values <- reactiveValues(opt = list())
+  values$mb.nsrr <- F
 
 
-# ------------------------------------------------------------
-# initiate user upload, e.g. from dropbox URLs
+  # ------------------------------------------------------------
+  # attach EDFs & annotations from shinyfiles input (local upload)
 
-observeEvent( input$user.upload , {
- req( input$edf.url )
- cat("initiating user defined upload...\n") 
- values$mb.nsrr = F
- edf.name = NULL
- edf.path = NULL
- annot.name = NULL
- annot.path = NULL 
+  shinyFileChoose(input, "lfiles",
+    roots = roots,
+    filetypes = c("", "txt", "edf", "annot", "xml", "eannot", "csv", "tsv")
+  )
 
- # EDF
- try( {
-   url1 <- gsub( "?dl=0" , "?dl=1" , input$edf.url , fixed = T )
-   cat( "beaming:", url1 , "\n" )
-   tmp1 <- tempfile( fileext = ".edf" )
-   # note - fix for dropbox links w/ ?dl=0 ---> use ?dl=1 for direct download
-   curl_download( url1 , tmp1)
-   if ( file.exists( tmp1 ) ) {
-      edf.name = "moonbeam.edf"
-      edf.path = tmp1
-      cat( "edf   :" , tmp1 , "\n" )
-   }
-   
- })
+  observeEvent(input$lfiles, {
+    req(!is.integer(input$lfiles))
 
- # annotation file
- if ( ! is.null( input$annot.url ) )
- {
-  try( {
-   url2	<- gsub( "?dl=0" , "?dl=1" , input$annot.url , fixed = T )
-   cat( "beaming:", url2 , "\n" )
-   atype <- NULL
-   if ( grepl( ".xml" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".xml"
-   if ( grepl( ".annot" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".annot"
-   if ( grepl( ".txt" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".annot"
-   if ( grepl( ".eannot" , tolower(input$annot.url) , fixed = TRUE ) ) atype <- ".eannot"
-   if ( ! is.null( atype ) )
-   { 
-    tmp2 <- tempfile( fileext = atype )
-    curl_download( url2 , tmp2 )
-    if ( file.exists( tmp2 ) ) {
-      annot.name = paste( "moonbeam" , atype , sep="" )
-      annot.path = tmp2
-      cat( "annot :" , tmp2 , "\n" )
+    df <- parseFilePaths(roots, input$lfiles)
+    df$name <- as.character(df$name)
+    df$datapath <- as.character(df$datapath)
+
+    # set to null
+    values$file.details <- NULL
+    edf.name <- edf.path <- NULL
+    annot.names <- annot.paths <- NULL
+
+    # take a single EDF
+    idx <- grep(".edf", ignore.case = T, df$name)
+    if (length(idx) >= 1) {
+      edf.name <- df$name[idx[1]]
+      edf.path <- df$datapath[idx[1]]
     }
-   }
- })
- }
-   
- removeModal()
- 
-# update to 
-values$file.details <-
- list( edf.name = edf.name , 
-       edf.path = edf.path , 
-       annot.names = annot.name , 
-       annot.paths = annot.path )
 
+    cat("edf.name", edf.name, "\n")
+    cat("edf.path", edf.path, "\n")
 
-  
-} )
+    # take 1 or more annotation files (XML, .annot or .eannot)
+    idx <- c(
+      grep(".xml", ignore.case = T, df$name),
+      grep(".annot", ignore.case = T, df$name),
+      grep(".eannot", ignore.case = T, df$name)
+    )
 
+    if (length(idx) >= 1) {
+      annot.names <- df$name[idx]
+      annot.paths <- df$datapath[idx]
+    }
 
-
-
-# ------------------------------------------------------------
-# initiate from NSRR upload (Moonbeam)
-
-
-observeEvent( values$nsrr.indivs , { 
- req( values$nsrr.indivs )
-
- cat("initiating NSRR moonbeam..." )
-
- values$mb.nsrr = T
- edf.name = NULL
- edf.path = NULL
- annot.name = NULL
- annot.path = NULL 
-
- # get all files for this indiv
- files <- values$mb.indivs[ values$mb.indivs[,2] == values$nsrr.indivs ,3 ]
- cat( "found", length(files) , "for individual" , values$nsrr.indivs , "\n" )
- req( length( files ) > 0 )
- 
- # get EDF - should have exactly 1 - either .edf or .edf.gz
- # if the latter, also pull .edf.gz.idx
- # then expect 1+ annotation files (XML, .annot) 
- ee <- grep( ".edf$" , files  , ignore.case=T ) 
- zz <- grep( ".edf.gz$" , files , ignore.case=T )
- ii <- grep( ".edf.gz.idx$" , files , ignore.case=T ) 
- # if both EDF and EDF.GZ pick EDF
- f.edf <- NULL
- if ( length(zz) >= 1 ) f.edf <- files[ zz[1] ]
- if ( length(ee) >= 1 ) f.edf <- files[ ee[1] ] 
- req( f.edf )
- is.gz = length( grep( ".edf.gz$" , f.edf , ignore.case=T ) ) == 1 
- 
- # assume everything else is annotation
-
- # (as .idx files are not listed in the manifest - but just in case some got it drop here
- f.annot <- paste( files[ - c( ee,zz,ii ) ] , collapse="," )
-
- # for now, assume a single file
-# if ( length( f.annot ) > 1 ) f.annot = f.annot[1]
-
- cat( "EDF" , f.edf , "\n" )
- cat( "annots" , f.annot , "\n" )
-
- tmp.edfgz <- ""
- # EDF
- try( {
-   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , f.edf , sep="" )
-   tmp <- tempfile( fileext = ifelse( is.gz , ".edf.gz"  , ".edf" ) )
-   tmp.edfgz <- tmp
-   cat( "beaming:", url , "\n" )
-   curl_download( url , tmp )
-   if ( file.exists( tmp ) ) {
-      edf.name = paste( values$nsrr.indivs , ifelse( is.gz , "edf.gz"  , "edf" ), sep="." ) 
-      edf.path = tmp
-   }
- })
-
- # EDF.GZ.IDX? -> ensure has same file root as file.edf.gz --> file.edf.gz.idx
- # so that Luna can find it
- if ( is.gz ) {
-   try( {
-   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , paste( f.edf, "idx",sep=".") , sep="" )
-   tmp <- paste( tmp.edfgz , "idx" , sep="." ) 
-   cat( "beaming:", url , "\n" )
-   curl_download( url , tmp )
+    # trigger load data
+    values$file.details <- list(
+      edf.name = edf.name,
+      edf.path = edf.path,
+      annot.names = annot.names,
+      annot.paths = annot.paths
+    )
   })
- }
- 
- # annotation file(s)
- if ( length( f.annot ) == 1 )
- {
-  try( {
-   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&f=" , f.annot , sep="" )
-   cat( "beaming:", url , "\n" )
-   atype <- NULL
-   if ( grepl( ".xml" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".xml"
-   if ( grepl( ".annot" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".annot"
-   if ( grepl( ".txt" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".annot"
-   if ( grepl( ".eannot" , tolower(f.annot) , fixed = TRUE ) ) atype <- ".eannot"
-   if ( ! is.null( atype ) )
-   { 
-    tmp <- tempfile( fileext = atype )
-    curl_download( url , tmp )
-    if ( file.exists( tmp ) ) {
-      annot.name = paste( values$nsrr.indivs , atype , sep="" )
-      annot.path = tmp
+
+
+  # ------------------------------------------------------------
+  # handle uploads from standard (clientside) fileInput
+
+  observeEvent(input$files, {
+    values$mb.nsrr <- F
+
+    values$file.details <- NULL
+
+    edf.name <- edf.path <- NULL
+    annot.names <- annot.paths <- NULL
+
+    # single EDF
+    idx <- grep(".edf", ignore.case = T, input$files$name)
+    if (length(idx) >= 1) {
+      edf.name <- input$files$name[idx[1]]
+      edf.path <- input$files$datapath[idx[1]]
     }
-   }
- })
- }
+
+    # 1 or more annotation files
+    idx <- c(
+      grep(".xml", ignore.case = T, input$files$name),
+      grep(".annot", ignore.case = T, input$files$name),
+      grep(".eannot", ignore.case = T, input$files$name)
+    )
+
+    if (length(idx) >= 1) {
+      annot.names <- input$files$name[idx]
+      annot.paths <- input$files$datapath[idx]
+    }
+
+    # trigger load data
+
+    values$file.details <- list(
+      edf.name = edf.name,
+      edf.path = edf.path,
+      annot.names = annot.names,
+      annot.paths = annot.paths
+    )
+  })
 
 
- # update phenotypes
- url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&c=", input$nsrr.cohorts , "&p=" , values$nsrr.indivs , sep="" )
- cat( "beaming:", url , "\n" )
- tmp <- tempfile( fileext = ".txt" )
-# cat("phenotype file" , tmp , "\n" )
- curl_download( url , tmp )
- if ( file.exists( tmp ) ) {
-    retval <- try( df <- read.table( tmp , header=F , sep="\t" , quote="" ) )
-    if ( class( retval) != "try-error" ) {
-       values$moonbeam.phenofile <- tmp
-       showTab(inputId = "maintabs", target = "Moonbeam")
-      } else {
-       cat("no phenotypes\n")
-       values$moonbeam.phenofile <- NULL
-       #hideTab(inputId = "maintabs", target = "Moonbeam")
+  # ------------------------------------------------------------
+  # initiate user upload, e.g. from dropbox URLs
+
+  observeEvent(input$user.upload, {
+    req(input$edf.url)
+    cat("initiating user defined upload...\n")
+    values$mb.nsrr <- F
+    edf.name <- NULL
+    edf.path <- NULL
+    annot.name <- NULL
+    annot.path <- NULL
+
+    # EDF
+    try({
+      url1 <- gsub("?dl=0", "?dl=1", input$edf.url, fixed = T)
+      cat("beaming:", url1, "\n")
+      tmp1 <- tempfile(fileext = ".edf")
+      # note - fix for dropbox links w/ ?dl=0 ---> use ?dl=1 for direct download
+      curl_download(url1, tmp1)
+      if (file.exists(tmp1)) {
+        edf.name <- "moonbeam.edf"
+        edf.path <- tmp1
+        cat("edf   :", tmp1, "\n")
       }
- }
+    })
 
- # clean up
- removeModal()
+    # annotation file
+    if (!is.null(input$annot.url)) {
+      try({
+        url2 <- gsub("?dl=0", "?dl=1", input$annot.url, fixed = T)
+        cat("beaming:", url2, "\n")
+        atype <- NULL
+        if (grepl(".xml", tolower(input$annot.url), fixed = TRUE)) atype <- ".xml"
+        if (grepl(".annot", tolower(input$annot.url), fixed = TRUE)) atype <- ".annot"
+        if (grepl(".txt", tolower(input$annot.url), fixed = TRUE)) atype <- ".annot"
+        if (grepl(".eannot", tolower(input$annot.url), fixed = TRUE)) atype <- ".eannot"
+        if (!is.null(atype)) {
+          tmp2 <- tempfile(fileext = atype)
+          curl_download(url2, tmp2)
+          if (file.exists(tmp2)) {
+            annot.name <- paste("moonbeam", atype, sep = "")
+            annot.path <- tmp2
+            cat("annot :", tmp2, "\n")
+          }
+        }
+      })
+    }
 
- cat( "EDF temp file path:" , edf.path , "\n" )
- cat( "ANNOT temp file path:" , annot.path , "\n" )
+    removeModal()
 
-# update to 
-values$file.details <-
- list( edf.name = edf.name , 
-       edf.path = edf.path , 
-       annot.names = annot.name , 
-       annot.paths = annot.path )
-
-
-  
-} )
+    # update to
+    values$file.details <-
+      list(
+        edf.name = edf.name,
+        edf.path = edf.path,
+        annot.names = annot.name,
+        annot.paths = annot.path
+      )
+  })
 
 
-output$moonbeam.pheno <- DT::renderDataTable({
-  req(values$moonbeam.phenofile )
 
-  df <- read.table( values$moonbeam.phenofile , quote="", header=F , stringsAsFactors=F , sep="\t" , comment.char= "" )
 
-  names(df) <- c("Variable","Value","Units","Description")
-  df[is.na(df)] <- "."
+  # ------------------------------------------------------------
+  # initiate from NSRR upload (Moonbeam)
 
-  pri <- c("nsrr_age","nsrr_sex","nsrr_bmi","nsrr_flag_spsw","nsrr_ahi_hp3r_aasm15","nsrr_ahi_hp4u_aasm15")
 
-  q <- match( pri , df$Variable ) 
-  q <- q[ ! is.na(q) ] 
-  if ( length(q) > 0 ) df <- rbind( df[ q , ] , df[ -q , ] )  
-  DT::datatable( df , escape = F, rownames = F ,
-       options = list(
+  observeEvent(values$nsrr.indivs, {
+    req(values$nsrr.indivs)
+
+    cat("initiating NSRR moonbeam...")
+
+    values$mb.nsrr <- T
+    edf.name <- NULL
+    edf.path <- NULL
+    annot.name <- NULL
+    annot.path <- NULL
+
+    # get all files for this indiv
+    files <- values$mb.indivs[values$mb.indivs[, 2] == values$nsrr.indivs, 3]
+    cat("found", length(files), "for individual", values$nsrr.indivs, "\n")
+    req(length(files) > 0)
+
+    # get EDF - should have exactly 1 - either .edf or .edf.gz
+    # if the latter, also pull .edf.gz.idx
+    # then expect 1+ annotation files (XML, .annot)
+    ee <- grep(".edf$", files, ignore.case = T)
+    zz <- grep(".edf.gz$", files, ignore.case = T)
+    ii <- grep(".edf.gz.idx$", files, ignore.case = T)
+    # if both EDF and EDF.GZ pick EDF
+    f.edf <- NULL
+    if (length(zz) >= 1) f.edf <- files[zz[1]]
+    if (length(ee) >= 1) f.edf <- files[ee[1]]
+    req(f.edf)
+    is.gz <- length(grep(".edf.gz$", f.edf, ignore.case = T)) == 1
+
+    # assume everything else is annotation
+
+    # (as .idx files are not listed in the manifest - but just in case some got it drop here
+    f.annot <- paste(files[-c(ee, zz, ii)], collapse = ",")
+
+    # for now, assume a single file
+    # if ( length( f.annot ) > 1 ) f.annot = f.annot[1]
+
+    cat("EDF", f.edf, "\n")
+    cat("annots", f.annot, "\n")
+
+    tmp.edfgz <- ""
+    # EDF
+    try({
+      url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=", input$nsrr.token, "&f=", f.edf, sep = "")
+      tmp <- tempfile(fileext = ifelse(is.gz, ".edf.gz", ".edf"))
+      tmp.edfgz <- tmp
+      cat("beaming:", url, "\n")
+      curl_download(url, tmp)
+      if (file.exists(tmp)) {
+        edf.name <- paste(values$nsrr.indivs, ifelse(is.gz, "edf.gz", "edf"), sep = ".")
+        edf.path <- tmp
+      }
+    })
+
+    # EDF.GZ.IDX? -> ensure has same file root as file.edf.gz --> file.edf.gz.idx
+    # so that Luna can find it
+    if (is.gz) {
+      try({
+        url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=", input$nsrr.token, "&f=", paste(f.edf, "idx", sep = "."), sep = "")
+        tmp <- paste(tmp.edfgz, "idx", sep = ".")
+        cat("beaming:", url, "\n")
+        curl_download(url, tmp)
+      })
+    }
+
+    # annotation file(s)
+    if (length(f.annot) == 1) {
+      try({
+        url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=", input$nsrr.token, "&f=", f.annot, sep = "")
+        cat("beaming:", url, "\n")
+        atype <- NULL
+        if (grepl(".xml", tolower(f.annot), fixed = TRUE)) atype <- ".xml"
+        if (grepl(".annot", tolower(f.annot), fixed = TRUE)) atype <- ".annot"
+        if (grepl(".txt", tolower(f.annot), fixed = TRUE)) atype <- ".annot"
+        if (grepl(".eannot", tolower(f.annot), fixed = TRUE)) atype <- ".eannot"
+        if (!is.null(atype)) {
+          tmp <- tempfile(fileext = atype)
+          curl_download(url, tmp)
+          if (file.exists(tmp)) {
+            annot.name <- paste(values$nsrr.indivs, atype, sep = "")
+            annot.path <- tmp
+          }
+        }
+      })
+    }
+
+
+    # update phenotypes
+    url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=", input$nsrr.token, "&c=", input$nsrr.cohorts, "&p=", values$nsrr.indivs, sep = "")
+    cat("beaming:", url, "\n")
+    tmp <- tempfile(fileext = ".txt")
+    # cat("phenotype file" , tmp , "\n" )
+    curl_download(url, tmp)
+    if (file.exists(tmp)) {
+      retval <- try(df <- read.table(tmp, header = F, sep = "\t", quote = ""))
+      if (class(retval) != "try-error") {
+        values$moonbeam.phenofile <- tmp
+        showTab(inputId = "maintabs", target = "Moonbeam")
+      } else {
+        cat("no phenotypes\n")
+        values$moonbeam.phenofile <- NULL
+        # hideTab(inputId = "maintabs", target = "Moonbeam")
+      }
+    }
+
+    # clean up
+    removeModal()
+
+    cat("EDF temp file path:", edf.path, "\n")
+    cat("ANNOT temp file path:", annot.path, "\n")
+
+    # update to
+    values$file.details <-
+      list(
+        edf.name = edf.name,
+        edf.path = edf.path,
+        annot.names = annot.name,
+        annot.paths = annot.path
+      )
+  })
+
+
+  output$moonbeam.pheno <- DT::renderDataTable({
+    req(values$moonbeam.phenofile)
+
+    df <- read.table(values$moonbeam.phenofile, quote = "", header = F, stringsAsFactors = F, sep = "\t", comment.char = "")
+
+    names(df) <- c("Variable", "Value", "Units", "Description")
+    df[is.na(df)] <- "."
+
+    pri <- c("nsrr_age", "nsrr_sex", "nsrr_bmi", "nsrr_flag_spsw", "nsrr_ahi_hp3r_aasm15", "nsrr_ahi_hp4u_aasm15")
+
+    q <- match(pri, df$Variable)
+    q <- q[!is.na(q)]
+    if (length(q) > 0) df <- rbind(df[q, ], df[-q, ])
+    DT::datatable(df,
+      escape = F, rownames = F,
+      options = list(
         scrollY = "380px",
         scrollX = "100%",
         buttons = list(list(extend = "copy", text = "Copy")),
-	paging = F, ordering = F,
-	info = T,
-        searching = T,	
-        columnDefs = list(list(className = "dt-center", targets = 0:2) ) ) )
-})
-	
-
-
-# ------------------------------------------------------------
-# initiate view w/ an example dataset
-
-observeEvent(input$load.default, {
- values$mb.nsrr = F
- hideTab(inputId = "maintabs", target = "Moonbeam")
-
- values$file.details <-
- list( edf.name = "learn-nsrr02.edf" ,
-       edf.path = "data/learn-nsrr02.edf" ,
-       annot.names = "learn-nsrr02.xml" ,
-       annot.paths = "data/learn-nsrr02.xml" )
-})
+        paging = F, ordering = F,
+        info = T,
+        searching = T,
+        columnDefs = list(list(className = "dt-center", targets = 0:2))
+      )
+    )
+  })
 
 
 
-# ------------------------------------------------------------
-# load the EDF/annotations (whether from file or example dataset)
-# whenever 'values$file.details' changes
+  # ------------------------------------------------------------
+  # initiate view w/ an example dataset
 
-load.data <- observeEvent( values$file.details , {
+  observeEvent(input$load.default, {
+    values$mb.nsrr <- F
+    hideTab(inputId = "maintabs", target = "Moonbeam")
 
-# switch to header panel
- if ( values$mb.nsrr ) {
-  updateTabsetPanel(session, "maintabs", selected = "Moonbeam" )
- } else {
-  updateTabsetPanel(session, "maintabs", selected = "Header" )
-  hideTab(inputId = "maintabs", target = "Moonbeam")
- }
-
-# pull filenames
-  edf.name <- values$file.details[[ "edf.name" ]]
-  edf.path <- values$file.details[[ "edf.path" ]]
-  annot.names <- values$file.details[[ "annot.names" ]]
-  annot.paths <- values$file.details[[ "annot.paths" ]]
-
-# clear old data out
-  try( lrefresh() )
-  try( ldrop() )
-  
-  # clear all
-  # (todo - check why not simply setting values to NULL / list() ) 
-   values$opt  <- NULL
-   values$elen <- 30
-   values$soap <- NULL
-   values$pops <- NULL
-   values$view <- NULL
-   values$mtm <- NULL
-   values$mtm1 <- NULL
-   values$mtm2 <- NULL
-   values$mtm3 <- NULL
-   values$estats <- NULL
-   values$exe.mat <- NULL
-   values$exe.ts <- NULL
-   values$exe.e <- NULL
-   values$exe.k <- NULL
-   values$exe.e1 <- NULL
-   values$exe.e2 <- NULL
-   values$exe.c1 <- NULL
-   values$exe.c2 <- NULL
-   values$exe.ylim <- NULL
-   values$sigsumm <- NULL
-   values$sigsumm2 <- NULL
-   values$sigsumm2.label <- NULL
-   values$sigsumm2.interval <- NULL
-   values$evalout <- NULL
-   values$manipout <- NULL
-   values$nz <- 1
-   values$canonical <- NULL
-   values$LOFF <- values$LON <- "." 
-
- # reset Shiny UI components
-   updateSelectInput( session, "evalsel", choices = "" , label = "" , selected = 0 )
-   updateSelectInput( session, "plotT",   choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "channels", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "annots", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "disp.ann", choices = "" , label = NULL , selected = 0 )
-
- # hypnogram controls
-   updateSelectInput(session, "hypno.n1", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput(session, "hypno.n2", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput(session, "hypno.n3", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput(session, "hypno.r", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput(session, "hypno.w", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput(session, "hypno.u", choices = "" , label = NULL , selected = 0 )
-
- # MTM 
-   updateSelectInput(session, "mtm.ch", choices = "" , label = NULL , selected = 0 )
-
- # EXE time-series clustering
-   updateSelectInput(session, "exe.ch", choices = "" , label = NULL , selected = 0 )
-   
- # Misc data manipulations
-   updateSelectInput( session, "reref1",   choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "reref2",   choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "resample", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "drop",      choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "transch",   choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "copyold",   choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "renameold", choices = "" , label = NULL , selected = 0 )
-   updateSelectInput( session, "filter",   choices = "" , label = NULL , selected = 0 )
-   clear_sel_inst()
-   updateSelectInput( session, "psd.ch", choices = "" , label = NULL , selected = 0 ) 
-   updateSelectInput( session, "soap.ch", choices = "" , label = NULL , selected = 0 )
-
-  # Masks
-   updateSelectInput( session, "mask.annots", choices = "" , label = NULL , selected = 0 )
-
-  # POPS sleep stager
-   updateSelectInput(session, "pops.m1.eeg1", choices = "" , label = NULL , selected = 0)
-   updateSelectInput(session, "pops.m2.eeg1", choices = "" , label = NULL , selected = 0)
-   updateSelectInput(session, "pops.m2.eeg2", choices = "" , label = NULL , selected = 0)
-
-  # Sleep norms panel
-    updateSelectInput( session, "norm.eegF", choices = "" , label = NULL , selected = 0 )
-    updateSelectInput( session, "norm.eegC", choices = "" , label = NULL , selected = 0 )
-    updateSelectInput( session, "norm.eegO", choices = "" , label = NULL , selected = 0 )
-    
-  # register that we have new data attached
-   values$hasedf <- ! is.null( edf.name )
-   values$hasannots <- ! is.null( annot.names )
-   values$hasdata <- values$hasedf | values$hasannots
-   
-   if ( values$hasedf ) {
-      values$opt[["edfname"]] <- edf.name
-      values$opt[["edfpath"]] <- edf.path
-    }
-
-   if (values$hasannots) {
-      values$opt[["annotnames"]] <- annot.names
-      values$opt[["annotpaths"]] <- annot.paths
-    }
-
-  # some brief console output
-   cat(" has data?", values$hasdata, "\n")
-   cat(" has edf?", values$hasedf, "\n")
-   cat(" has annotations?", values$hasannots, "\n")
+    values$file.details <-
+      list(
+        edf.name = "learn-nsrr02.edf",
+        edf.path = "data/learn-nsrr02.edf",
+        annot.names = "learn-nsrr02.xml",
+        annot.paths = "data/learn-nsrr02.xml"
+      )
+  })
 
 
-   try( lrefresh() )
-   
-   # process EDF
 
-   if (values$hasedf) {
+  # ------------------------------------------------------------
+  # load the EDF/annotations (whether from file or example dataset)
+  # whenever 'values$file.details' changes
 
-      # attach EDF
-      cat( "attaching" , values$opt[["edfpath"]] , "\n" )
-      ledf( values$opt[["edfpath"]] )
-
-      # read all EDF+ annotations as class-level
-      # so that they show in the display
-      lset( "edf-annot-class-all" , "T")
-
-      # add any annotations
-      for (a in values$opt[["annotpaths"]]) {
-         cat("attaching" , a , "\n" )
-         ladd.annot.file(a)
+  load.data <- observeEvent(values$file.details,
+    {
+      # switch to header panel
+      if (values$mb.nsrr) {
+        updateTabsetPanel(session, "maintabs", selected = "Moonbeam")
+      } else {
+        updateTabsetPanel(session, "maintabs", selected = "Header")
+        hideTab(inputId = "maintabs", target = "Moonbeam")
       }
-      
-      # kick off initial analyses
-      init()
 
-      # update channels & annots, & other UIs
-      update()
+      # pull filenames
+      edf.name <- values$file.details[["edf.name"]]
+      edf.path <- values$file.details[["edf.path"]]
+      annot.names <- values$file.details[["annot.names"]]
+      annot.paths <- values$file.details[["annot.paths"]]
 
-    }
+      # clear old data out
+      try(lrefresh())
+      try(ldrop())
 
-} , priority = 99 )
+      # clear all
+      # (todo - check why not simply setting values to NULL / list() )
+      values$opt <- NULL
+      values$elen <- 30
+      values$soap <- NULL
+      values$pops <- NULL
+      values$view <- NULL
+      values$mtm <- NULL
+      values$mtm1 <- NULL
+      values$mtm2 <- NULL
+      values$mtm3 <- NULL
+      values$estats <- NULL
+      values$exe.mat <- NULL
+      values$exe.ts <- NULL
+      values$exe.e <- NULL
+      values$exe.k <- NULL
+      values$exe.e1 <- NULL
+      values$exe.e2 <- NULL
+      values$exe.c1 <- NULL
+      values$exe.c2 <- NULL
+      values$exe.ylim <- NULL
+      values$sigsumm <- NULL
+      values$sigsumm2 <- NULL
+      values$sigsumm2.label <- NULL
+      values$sigsumm2.interval <- NULL
+      values$evalout <- NULL
+      values$manipout <- NULL
+      values$nz <- 1
+      values$canonical <- NULL
+      values$LOFF <- values$LON <- "."
+
+      # reset Shiny UI components
+      updateSelectInput(session, "evalsel", choices = "", label = "", selected = 0)
+      updateSelectInput(session, "plotT", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "channels", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "annots", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "disp.ann", choices = "", label = NULL, selected = 0)
+
+      # hypnogram controls
+      updateSelectInput(session, "hypno.n1", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "hypno.n2", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "hypno.n3", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "hypno.r", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "hypno.w", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "hypno.u", choices = "", label = NULL, selected = 0)
+
+      # MTM
+      updateSelectInput(session, "mtm.ch", choices = "", label = NULL, selected = 0)
+
+      # EXE time-series clustering
+      updateSelectInput(session, "exe.ch", choices = "", label = NULL, selected = 0)
+
+      # Misc data manipulations
+      updateSelectInput(session, "reref1", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "reref2", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "resample", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "drop", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "transch", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "copyold", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "renameold", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "filter", choices = "", label = NULL, selected = 0)
+      clear_sel_inst()
+      updateSelectInput(session, "psd.ch", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "soap.ch", choices = "", label = NULL, selected = 0)
+
+      # Masks
+      updateSelectInput(session, "mask.annots", choices = "", label = NULL, selected = 0)
+
+      # POPS sleep stager
+      updateSelectInput(session, "pops.m1.eeg1", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "pops.m2.eeg1", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "pops.m2.eeg2", choices = "", label = NULL, selected = 0)
+
+      # Sleep norms panel
+      updateSelectInput(session, "norm.eegF", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "norm.eegC", choices = "", label = NULL, selected = 0)
+      updateSelectInput(session, "norm.eegO", choices = "", label = NULL, selected = 0)
+
+      # register that we have new data attached
+      values$hasedf <- !is.null(edf.name)
+      values$hasannots <- !is.null(annot.names)
+      values$hasdata <- values$hasedf | values$hasannots
+
+      if (values$hasedf) {
+        values$opt[["edfname"]] <- edf.name
+        values$opt[["edfpath"]] <- edf.path
+      }
+
+      if (values$hasannots) {
+        values$opt[["annotnames"]] <- annot.names
+        values$opt[["annotpaths"]] <- annot.paths
+      }
+
+      # some brief console output
+      cat(" has data?", values$hasdata, "\n")
+      cat(" has edf?", values$hasedf, "\n")
+      cat(" has annotations?", values$hasannots, "\n")
+
+
+      try(lrefresh())
+
+      # process EDF
+
+      if (values$hasedf) {
+        # attach EDF
+        cat("attaching", values$opt[["edfpath"]], "\n")
+        ledf(values$opt[["edfpath"]])
+
+        # Disable download_pops button everytime a new EDF is uploaded
+        shinyjs::disable("download_pops")
+
+        # read all EDF+ annotations as class-level
+        # so that they show in the display
+        lset("edf-annot-class-all", "T")
+
+        # add any annotations
+        for (a in values$opt[["annotpaths"]]) {
+          cat("attaching", a, "\n")
+          ladd.annot.file(a)
+        }
+
+        # kick off initial analyses
+        init()
+
+        # update channels & annots, & other UIs
+        update()
+      }
+    },
+    priority = 99
+  )
 
 
 
@@ -593,16 +596,15 @@ load.data <- observeEvent( values$file.details , {
   #
 
   init <- function() {
-
     # check we can use 30-second epochs
     # otherwise, drop to 1-second epochs
 
-    values$elen <- 30 
+    values$elen <- 30
     ne <- lepoch()
-    if ( ne == 0 ) values$elen <- 1
+    if (ne == 0) values$elen <- 1
 
     # epoch recording & SEGMENTS
-    ret <- leval( paste( "EPOCH dur=" , values$elen , " verbose & SEGMENTS" , sep="" ) )
+    ret <- leval(paste("EPOCH dur=", values$elen, " verbose & SEGMENTS", sep = ""))
 
     values$opt[["init.epochs"]] <- ret$EPOCH$E
     values$opt[["ne"]] <- dim(ret$EPOCH$E)[1]
@@ -613,7 +615,7 @@ load.data <- observeEvent( values$file.details , {
 
     # get stage-aligned epochs and hypnogram
 
-    ret <- leval( paste( "EPOCH align verbose dur=" , values$elen , sep="" ) )
+    ret <- leval(paste("EPOCH align verbose dur=", values$elen, sep = ""))
 
     values$opt[["ne.aligned"]] <- dim(ret$EPOCH$E)[1]
     values$opt[["init.epochs.aligned"]] <- ret$EPOCH$E
@@ -622,20 +624,20 @@ load.data <- observeEvent( values$file.details , {
 
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
     stgs <- lstages()
-    values$hasstaging <- !is.null( stgs )
+    values$hasstaging <- !is.null(stgs)
     values$variable.staging <- F
-    if ( values$hasstaging ) {      
-     stgs <- stgs[ stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W" ]
-     nstgs10 <- sum( table( stgs ) >= 10 ) 
-     values$variable.staging <- nstgs10 >= 2 
+    if (values$hasstaging) {
+      stgs <- stgs[stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W"]
+      nstgs10 <- sum(table(stgs) >= 10)
+      values$variable.staging <- nstgs10 >= 2
     }
 
     if (values$hasstaging) {
       values$opt[["hypno.stats"]] <- ret$HYPNO$BL
       values$opt[["hypno.epochs"]] <- ret$HYPNO$E
       values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-      values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE", "START_SEC")]      
-      values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
+      values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE", "START_SEC")]
+      values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen
       values$opt[["hypno.cycles"]] <- ret$HYPNO$C
       values$opt[["hypno.stages"]] <- ret$HYPNO$SS
     }
@@ -653,7 +655,6 @@ load.data <- observeEvent( values$file.details , {
     cat(" # epochs (raw)", values$opt[["ne"]], "\n")
     cat(" # epochs (stage-aligned)", values$opt[["ne.aligned"]], "\n")
     cat(" has-staging?", values$hasstaging, "\n")
-    
   }
 
 
@@ -661,24 +662,24 @@ load.data <- observeEvent( values$file.details , {
   # update hypnogram
 
   update.hypnogram <- function() {
-    req( values$hasstaging )
+    req(values$hasstaging)
 
-    try( ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")) )
+    try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
 
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
-    stgs <- ret$HYPNO$E$STAGE 
-    stgs <- stgs[ stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W" ]
-    nstgs10 <- sum( table( stgs ) >= 10 ) 
-    values$variable.staging <- nstgs10 >= 2 
-    cat( "updating hypnogram: variable.staging =" , values$variable.staging  , "\n" ) 
+    stgs <- ret$HYPNO$E$STAGE
+    stgs <- stgs[stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W"]
+    nstgs10 <- sum(table(stgs) >= 10)
+    values$variable.staging <- nstgs10 >= 2
+    cat("updating hypnogram: variable.staging =", values$variable.staging, "\n")
 
-    req( values$variable.staging )
-    
+    req(values$variable.staging)
+
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE","START_SEC")]
-    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
+    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE", "START_SEC")]
+    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
   }
@@ -691,32 +692,31 @@ load.data <- observeEvent( values$file.details , {
 
   update <- function() {
     isolate({
-
       # get HEADERS/ANNOTS (raw eppochs)
       ret <- leval("SEGMENTS & HEADERS & ANNOTS & DUMP-MASK")
 
       # no records left?
-      has.records <- "SEGMENTS" %in% names(ret) 
-      if ( has.records && ! any( ret$DUMP_MASK$E$EMASK == 0 ) ) has.records <- F 
-      
+      has.records <- "SEGMENTS" %in% names(ret)
+      if (has.records && !any(ret$DUMP_MASK$E$EMASK == 0)) has.records <- F
+
       # check records set?
-      if ( ! has.records ) {         
-         showModal(modalDialog(
+      if (!has.records) {
+        showModal(modalDialog(
           title = "No unmasked records left",
           "Please Refresh or reload a valid EDF",
           easyClose = TRUE
-        ))        
+        ))
       }
 
-      req( has.records == T )
+      req(has.records == T)
 
       values$opt[["header1"]] <- ret$HEADERS$BL
       values$opt[["header1"]]$EPOCH <- values$opt[["header1"]]$REC_DUR_SEC / values$elen
 
       values$opt[["header2"]] <- ret$HEADERS$CH
       values$opt[["header2"]] <- values$opt[["header2"]][, c("CH", "PDIM", "SR", "PMIN", "PMAX", "TRANS")]
-      values$opt[["header2"]]$PMIN <- signif( values$opt[["header2"]]$PMIN , 4 )
-      values$opt[["header2"]]$PMAX <- signif( values$opt[["header2"]]$PMAX , 4 ) 
+      values$opt[["header2"]]$PMIN <- signif(values$opt[["header2"]]$PMIN, 4)
+      values$opt[["header2"]]$PMAX <- signif(values$opt[["header2"]]$PMAX, 4)
       names(values$opt[["header2"]]) <- c("Channel", "Unit", "SRate", "Min", "Max", "Transducer")
 
       # segments
@@ -763,9 +763,9 @@ load.data <- observeEvent( values$file.details , {
 
       # Update channel & annot lists
 
-      updateSelectInput( session, "channels", choices = values$opt[["chs"]], label = paste(length(values$opt[["chs"]]), "channels"), selected = 0 )
-      updateSelectInput( session, "annots", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "annotations"), selected = 0 )
-      updateSelectInput( session, "disp.ann", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "listed annotations"), selected = 0 )
+      updateSelectInput(session, "channels", choices = values$opt[["chs"]], label = paste(length(values$opt[["chs"]]), "channels"), selected = 0)
+      updateSelectInput(session, "annots", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "annotations"), selected = 0)
+      updateSelectInput(session, "disp.ann", choices = values$opt[["annots"]], label = paste(length(values$opt[["annots"]]), "listed annotations"), selected = 0)
 
       # hypno assignments
 
@@ -778,15 +778,15 @@ load.data <- observeEvent( values$file.details , {
 
       # manips
 
-      updateSelectInput( session, "reref1",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "reref2",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "resample", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "drop",      choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "transch",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "copyold",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )    
-      updateSelectInput( session, "renameold", choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "filter",   choices = values$opt[[ "chs" ]] , label = NULL , selected = 0 )
-      updateSelectInput( session, "mask.annots", choices = values$opt[[ "annots" ]] , label = NULL , selected = 0 )
+      updateSelectInput(session, "reref1", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "reref2", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "resample", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "drop", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "transch", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "copyold", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "renameold", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "filter", choices = values$opt[["chs"]], label = NULL, selected = 0)
+      updateSelectInput(session, "mask.annots", choices = values$opt[["annots"]], label = NULL, selected = 0)
 
       # others
 
@@ -796,19 +796,19 @@ load.data <- observeEvent( values$file.details , {
       t50 <- values$opt[["type"]][values$opt[["sr"]] >= 50]
       first.eeg <- which(t50 == "EEG")[1]
 
-      updateSelectInput( session, "psd.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
-      updateSelectInput( session, "soap.ch", choices = s50, label = NULL , selected = 0 )
+      updateSelectInput(session, "psd.ch", label = NULL, choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]))
+      updateSelectInput(session, "soap.ch", choices = s50, label = NULL, selected = 0)
 
-      updateSelectInput( session, "mtm.ch", label = NULL , choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
-      updateSelectInput( session, "exe.ch", label = NULL , choices = values$opt[[ "chs" ]] , selected = 0 )
+      updateSelectInput(session, "mtm.ch", label = NULL, choices = s50, selected = ifelse(is.na(first.eeg), 0, s50[first.eeg]))
+      updateSelectInput(session, "exe.ch", label = NULL, choices = values$opt[["chs"]], selected = 0)
 
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = s50, selected = 0)
 
-      updateSelectInput( session, "norm.eegF", label = NULL , choices = c("--none--",s50), selected = 0 )# ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
-      updateSelectInput( session, "norm.eegC", label = NULL , choices = c("--none--",s50), selected = 0 )
-      updateSelectInput( session, "norm.eegO", label = NULL , choices = c("--none--",s50), selected = 0 )
+      updateSelectInput(session, "norm.eegF", label = NULL, choices = c("--none--", s50), selected = 0) # ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
+      updateSelectInput(session, "norm.eegC", label = NULL, choices = c("--none--", s50), selected = 0)
+      updateSelectInput(session, "norm.eegO", label = NULL, choices = c("--none--", s50), selected = 0)
 
       # Get mask
       values$opt[["unmasked"]] <- ret$DUMP_MASK$E$E[ret$DUMP_MASK$E$EMASK == 0]
@@ -816,7 +816,6 @@ load.data <- observeEvent( values$file.details , {
 
       # clear misc other
       values$estats <- NULL
-
     })
   }
 
@@ -826,7 +825,6 @@ load.data <- observeEvent( values$file.details , {
   # Process an arbitary Luna command
 
   observeEvent(input$go, {
-
     req(values$hasedf)
 
     values$evalout <- c(input$eval, "\n", capture.output(values$opt[["k"]] <- leval(input$eval)), "\n")
@@ -944,15 +942,17 @@ load.data <- observeEvent( values$file.details , {
 
     df <- values$opt[["header1"]]
     df$ID <- df$EDF_ID <- NULL
-    df <- df[, c("EDF_TYPE","NS","START_DATE","START_TIME","STOP_TIME","REC_DUR_HMS","REC_DUR_SEC","EPOCH","TOT_DUR_HMS","TOT_DUR_SEC","NR","REC_DUR") ]
+    df <- df[, c("EDF_TYPE", "NS", "START_DATE", "START_TIME", "STOP_TIME", "REC_DUR_HMS", "REC_DUR_SEC", "EPOCH", "TOT_DUR_HMS", "TOT_DUR_SEC", "NR", "REC_DUR")]
     df <- data.frame(t(df))
     df$VAR <- rownames(df)
-    names(df) <- c("Value","Variable")
-    df <- df[,c("Variable","Value")]
-    df$Variable <- c( "EDF type" , "Number of signals", "Start date", "Start time", "Stop time", "Duration (h:m:s)", "Duration (sec)", "Duration (epochs)",
-     "Total duration (h:m:s)","Total duration (sec)", "Number of records", "Record duration (sec)" )  
+    names(df) <- c("Value", "Variable")
+    df <- df[, c("Variable", "Value")]
+    df$Variable <- c(
+      "EDF type", "Number of signals", "Start date", "Start time", "Stop time", "Duration (h:m:s)", "Duration (sec)", "Duration (epochs)",
+      "Total duration (h:m:s)", "Total duration (sec)", "Number of records", "Record duration (sec)"
+    )
 
-    DT::datatable( df, 
+    DT::datatable(df,
       extensions = c("Buttons"),
       options = list(
         scrollY = "375px",
@@ -990,12 +990,12 @@ load.data <- observeEvent( values$file.details , {
 
   output$basic.ecount <- renderText({
     req(values$hasedf)
-    paste(values$opt[["ne"]], "original epochs (epoch length = " , values$elen , "sec)" )
+    paste(values$opt[["ne"]], "original epochs (epoch length = ", values$elen, "sec)")
   })
 
   output$aligned.ecount <- renderText({
     req(values$hasedf)
-    paste(values$opt[["ne.aligned"]], "stage-aligned original epochs (epoch length = " , values$elen , "sec)" )
+    paste(values$opt[["ne.aligned"]], "stage-aligned original epochs (epoch length = ", values$elen, "sec)")
   })
 
   output$selected.ecount <- renderText({
@@ -1120,8 +1120,8 @@ load.data <- observeEvent( values$file.details , {
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
-    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE","START_SEC")]
-    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen 
+    values$opt[["ss"]] <- ret$HYPNO$E[, c("E", "STAGE", "START_SEC")]
+    values$opt[["ss"]]$STOP_SEC <- values$opt[["ss"]]$START_SEC + values$elen
     values$opt[["hypno.cycles"]] <- ret$HYPNO$C
     values$opt[["hypno.stages"]] <- ret$HYPNO$SS
   })
@@ -1139,8 +1139,8 @@ load.data <- observeEvent( values$file.details , {
     ne <- values$opt[["ne"]]
     if (!is.null(brush)) {
       # 120=60^2/30
-      mine <- floor(brush$xmin * (60^2)/values$elen ) + 1
-      maxe <- ceiling(brush$xmax * (60^2) /values$elen ) + 1      
+      mine <- floor(brush$xmin * (60^2) / values$elen) + 1
+      maxe <- ceiling(brush$xmax * (60^2) / values$elen) + 1
       values$opt[["hypno.epochs"]]$STAGE <- rep("L", ne)
       values$opt[["hypno.epochs"]]$STAGE[mine:maxe] <- values$opt[["all.hypno.epochs"]]$STAGE[mine:maxe]
 
@@ -1157,8 +1157,8 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging, values$variable.staging )
- 
+    req(values$hasedf, values$hasstaging, values$variable.staging)
+
     m <- as.data.frame(matrix(
       c(
         "TRT", "Total Recording Time, based on scored epochs (T0 – T6) (mins)",
@@ -1222,9 +1222,9 @@ load.data <- observeEvent( values$file.details , {
 
 
   output$table.hypno.times <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging , values$variable.staging )
+    req(values$hasedf, values$hasstaging, values$variable.staging)
 
-     m <- as.data.frame(matrix(
+    m <- as.data.frame(matrix(
       c(
         "X0_START", "Study Start",
         "X1_LIGHTS_OFF", "Lights Off time (or start of recording)",
@@ -1238,8 +1238,8 @@ load.data <- observeEvent( values$file.details , {
     ))
     m$HMS <- as.character(values$opt[["hypno.stats"]][, gsub("X", "HMS", m[, 1])])
     m$E <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "E", m[, 1])]), 3)
-#    m$T <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "T", m[, 1])]), 3)
-    m$EPOCH <- floor( m$E*2 ) + 1
+    #    m$T <- round(as.numeric(values$opt[["hypno.stats"]][, gsub("X", "T", m[, 1])]), 3)
+    m$EPOCH <- floor(m$E * 2) + 1
 
     DT::datatable(m,
       options = list(
@@ -1262,11 +1262,11 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno.stages <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging, values$variable.staging )
+    req(values$hasedf, values$hasstaging, values$variable.staging)
 
     dt <- values$opt[["hypno.stages"]]
     dt <- dt[dt$SS %in% c("?", "N1", "N2", "N3", "R", "S", "W", "WASO"), ]
-    dt$EDUR <- as.integer( dt$MINS * 2 ) 
+    dt$EDUR <- as.integer(dt$MINS * 2)
     dt <- dt[, c("SS", "MINS", "EDUR", "PCT", "BOUT_MD", "BOUT_N")]
     dt$PCT <- round(100 * dt$PCT, 2)
     names(dt) <- c("Stage", "Duration (m)", "Duration (e)", "Duration (%)", "Median-bout(m)", "N-bouts")
@@ -1288,7 +1288,7 @@ load.data <- observeEvent( values$file.details , {
   #
 
   output$table.hypno.cycles <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging, values$variable.staging )
+    req(values$hasedf, values$hasstaging, values$variable.staging)
     dt <- values$opt[["hypno.cycles"]]
     dt$NUM <- 1:(dim(dt)[1])
     dt <- dt[, c("NUM", "NREMC_START", "NREMC_N", "NREMC_MINS", "NREMC_NREM_MINS", "NREMC_REM_MINS")]
@@ -1310,7 +1310,7 @@ load.data <- observeEvent( values$file.details , {
   # Hypnogram epoch-statistics
 
   output$table.hypno.epochs <- DT::renderDataTable({
-    req(values$hasedf, values$hasstaging, values$variable.staging  )
+    req(values$hasedf, values$hasstaging, values$variable.staging)
 
     dt <- values$opt[["hypno.epochs"]]
     dt <- dt[, c("E", "CLOCK_TIME", "MINS", "STAGE", "CYCLE", "PERSISTENT_SLEEP", "WASO", "E_N1", "E_N2", "E_N3", "E_REM", "E_SLEEP", "E_WASO")]
@@ -1336,12 +1336,12 @@ load.data <- observeEvent( values$file.details , {
   output$psd.plot <- renderPlot({
     req(input$psd.ch)
     isolate({
-     cmd <- paste("PSD epoch-spectrum max=25 dB sig", input$psd.ch, sep = "=")
-     ret <- leval(cmd)
-     par(mar = c(0, 0, 0, 0))
-     ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
-     df <- merge( ret$PSD$CH_E_F , ttable , by="E" , all.x = T )     
-     lpointmap(df$START, df$F, df$PSD, xlim=c(0,values$opt[["init.secs"]]), xs=values$elen, ys=0.25, win = 0.05)
+      cmd <- paste("PSD epoch-spectrum max=25 dB sig", input$psd.ch, sep = "=")
+      ret <- leval(cmd)
+      par(mar = c(0, 0, 0, 0))
+      ttable <- values$opt[["init.epochs.aligned"]][, c("E", "START")]
+      df <- merge(ret$PSD$CH_E_F, ttable, by = "E", all.x = T)
+      lpointmap(df$START, df$F, df$PSD, xlim = c(0, values$opt[["init.secs"]]), xs = values$elen, ys = 0.25, win = 0.05)
     })
   })
 
@@ -1349,34 +1349,34 @@ load.data <- observeEvent( values$file.details , {
   # Mask plot
   #
 
-  do.mask.plot <- function() { 
-   df <- values$opt[["init.epochs"]][ , c("E","START") ]
+  do.mask.plot <- function() {
+    df <- values$opt[["init.epochs"]][, c("E", "START")]
     inc <- df$E %in% values$opt[["included"]]
     unmsk <- df$E %in% values$opt[["unmasked"]]
-    col <- rep( "white", dim(df)[1] )
+    col <- rep("white", dim(df)[1])
     col[inc] <- "ivory3"
     col[unmsk] <- "orange2"
     mx <- max(df$START)
     # any masked?
-    values$opt[[ "maskset" ]] <- any( ! col == "orange2" )
-#    cat("mask-set",values$opt[[ "maskset" ]],"\n")
+    values$opt[["maskset"]] <- any(!col == "orange2")
+    #    cat("mask-set",values$opt[[ "maskset" ]],"\n")
     par(mar = c(0, 0, 0, 0))
-    plot( df$START, 
-      rep(2, dim(df)[1] ),
-      pch = "|", ylim=c(0,2.5), 
+    plot(df$START,
+      rep(2, dim(df)[1]),
+      pch = "|", ylim = c(0, 2.5),
       xaxt = "n", yaxt = "n", xaxs = "i",
-      col = col , xlim = c(0,mx)
+      col = col, xlim = c(0, mx)
     )
-    tps4 <- seq(0,mx,3600/4)
-    tps1 <- seq(0,mx,3600)    
-    points( tps4 , rep(0.5,length(tps4)) , pch="|" , col = "blue", cex=0.4)
-    points( tps1 , rep(0.5,length(tps1)) , pch="|" , col = "black" , cex=0.8)
-}
+    tps4 <- seq(0, mx, 3600 / 4)
+    tps1 <- seq(0, mx, 3600)
+    points(tps4, rep(0.5, length(tps4)), pch = "|", col = "blue", cex = 0.4)
+    points(tps1, rep(0.5, length(tps1)), pch = "|", col = "black", cex = 0.8)
+  }
 
   output$mask.plot <- renderPlot({
     req(values$hasedf)
     do.mask.plot()
-   })
+  })
 
 
 
@@ -1549,15 +1549,16 @@ load.data <- observeEvent( values$file.details , {
   # SOAP
 
   observeEvent(input$soap.run, {
-    req( values$hasstaging )
-    req( values$variable.staging )
-    req(values$hasdata, input$soap.ch , values$opt[[ "maskset" ]] == F )
+    req(values$hasstaging)
+    req(values$variable.staging)
+    req(values$hasdata, input$soap.ch, values$opt[["maskset"]] == F)
     req(length(unique(values$opt[["ss"]]$STAGE[values$opt[["ss"]]$E %in% values$opt[["included"]]])) >= 2)
-    req( values$elen == 30 )
+    req(values$elen == 30)
 
     # always make a copy, i.e. so as not to change SR for original
-    if ( ! paste( input$soap.ch , "SOAP" , sep="_" ) %in% values$opt[[ "chs" ]] ) 
-      leval( paste( "COPY sig=" , input$soap.ch , " tag=SOAP" , sep="" ) )
+    if (!paste(input$soap.ch, "SOAP", sep = "_") %in% values$opt[["chs"]]) {
+      leval(paste("COPY sig=", input$soap.ch, " tag=SOAP", sep = ""))
+    }
 
     # run SOAP on the copy, XXX_SOAP
     cmd <- paste("SOAP force-reload epoch sig=", input$soap.ch, "_SOAP lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")
@@ -1577,7 +1578,6 @@ load.data <- observeEvent( values$file.details , {
 
     # update chs
     update()
-
   })
 
 
@@ -1589,7 +1589,7 @@ load.data <- observeEvent( values$file.details , {
 
 
   output$table.soap <- DT::renderDataTable({
-    req(values$hasdata, values$hasstaging, values$variable.staging,  values$soap)
+    req(values$hasdata, values$hasstaging, values$variable.staging, values$soap)
 
     df <- values$soap[["soap"]]
     df$ID <- NULL
@@ -1648,41 +1648,42 @@ load.data <- observeEvent( values$file.details , {
   # POPS
 
   observeEvent(input$pops.run, {
-    req(values$hasdata, values$opt[[ "maskset" ]] == F )
-    req( values$elen == 30 )
-	
+    req(values$hasdata, values$opt[["maskset"]] == F)
+    req(values$elen == 30)
+
     equiv_mode <- F
 
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
 
-      fstr <- ifelse( input$pops.filter , "FLT" , "CPY" )
-      
-      # need to create (if they do not already exist) 
-      #   CEN = XXX_FLT  [ or _CPY if just a copy ] 
-      #   ZEN = XXX_FLT_NORM  [ or _CPY_NORM is no filtering done ] 
+      fstr <- ifelse(input$pops.filter, "FLT", "CPY")
+
+      # need to create (if they do not already exist)
+      #   CEN = XXX_FLT  [ or _CPY if just a copy ]
+      #   ZEN = XXX_FLT_NORM  [ or _CPY_NORM is no filtering done ]
       # where XXX = input$pops.m1.eeg1
 
       # we will always make a copy of cen, as we may have to resample also
       # but we may not need to filter
       cen <- input$pops.m1.eeg1
-      flt <- paste( cen , fstr , sep="_" )
-      zen <- paste( cen , fstr , "NORM" , sep="_" )
+      flt <- paste(cen, fstr, sep = "_")
+      zen <- paste(cen, fstr, "NORM", sep = "_")
 
-      # need to make XXX_FLT? 
-      if ( ! flt %in% values$opt[["chs"]] ) {
-        # copy 
-        leval( paste( "COPY sig=" , cen , " tag=" , fstr , sep="" ) )
-	# optionally, filter
-	if ( input$pops.filter )
-          leval( paste( "FILTER sig=" , flt , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
-     }
+      # need to make XXX_FLT?
+      if (!flt %in% values$opt[["chs"]]) {
+        # copy
+        leval(paste("COPY sig=", cen, " tag=", fstr, sep = ""))
+        # optionally, filter
+        if (input$pops.filter) {
+          leval(paste("FILTER sig=", flt, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
+        }
+      }
 
-     # need to make XXX_FLT_NORM? 
-     # (done from the FLT version)
-     if (!zen %in% values$opt[["chs"]]) {
-       leval(paste("COPY sig=", flt, " tag=NORM", sep = ""))
-       leval(paste("ROBUST-NORM sig=", zen, " epoch winsor=0.005 second-norm=T", sep = ""))
+      # need to make XXX_FLT_NORM?
+      # (done from the FLT version)
+      if (!zen %in% values$opt[["chs"]]) {
+        leval(paste("COPY sig=", flt, " tag=NORM", sep = ""))
+        leval(paste("ROBUST-NORM sig=", zen, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
       # attach the library (s2)
@@ -1694,38 +1695,38 @@ load.data <- observeEvent( values$file.details , {
     else if (input$popstabs == "M2") {
       req(input$pops.m2.eeg1, input$pops.m2.eeg2)
 
-      fstr <- ifelse( input$pops.filter , "FLT" , "CPY" )
-      
+      fstr <- ifelse(input$pops.filter, "FLT", "CPY")
+
       cen1 <- input$pops.m2.eeg1
-      flt1 <- paste( cen1 , fstr , sep="_" )
-      zen1 <- paste( cen1 , fstr, "NORM" , sep="_" )
+      flt1 <- paste(cen1, fstr, sep = "_")
+      zen1 <- paste(cen1, fstr, "NORM", sep = "_")
 
       cen2 <- input$pops.m2.eeg2
-      flt2 <- paste( cen2 , fstr , sep="_" )
-      zen2 <- paste( cen2 , fstr, "NORM" , sep="_" )
+      flt2 <- paste(cen2, fstr, sep = "_")
+      zen2 <- paste(cen2, fstr, "NORM", sep = "_")
 
       # need to make XXX_FLT? (1, 2)
-      if ( ! flt1 %in% values$opt[["chs"]] ) {
-        leval( paste( "COPY sig=" , cen1 , " tag=" , fstr , sep="" ) )
-	if ( input$pops.filter ) leval( paste( "FILTER sig=" , flt1 , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
+      if (!flt1 %in% values$opt[["chs"]]) {
+        leval(paste("COPY sig=", cen1, " tag=", fstr, sep = ""))
+        if (input$pops.filter) leval(paste("FILTER sig=", flt1, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
       }
 
-      if ( ! flt2 %in% values$opt[["chs"]] ) {
-        leval( paste( "COPY sig=" , cen2 , " tag=" , fstr , sep="" ) )
-	if ( input$pops.filter ) leval( paste( "FILTER sig=" , flt2 , " fft bandpass=0.3,35 tw=0.5 ripple=0.02" , sep="" ) )
+      if (!flt2 %in% values$opt[["chs"]]) {
+        leval(paste("COPY sig=", cen2, " tag=", fstr, sep = ""))
+        if (input$pops.filter) leval(paste("FILTER sig=", flt2, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
       }
 
-     # need to make XXX_FLT_NORM? (1, 2)
-     if (!zen1 %in% values$opt[["chs"]]) {
-       leval(paste("COPY sig=", flt1, " tag=NORM", sep = ""))
-       leval(paste("ROBUST-NORM sig=", zen1, " epoch winsor=0.005 second-norm=T", sep = ""))
+      # need to make XXX_FLT_NORM? (1, 2)
+      if (!zen1 %in% values$opt[["chs"]]) {
+        leval(paste("COPY sig=", flt1, " tag=NORM", sep = ""))
+        leval(paste("ROBUST-NORM sig=", zen1, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
-     if (!zen2 %in% values$opt[["chs"]]) {
-       leval(paste("COPY sig=", flt2, " tag=NORM", sep = ""))
-       leval(paste("ROBUST-NORM sig=", zen2, " epoch winsor=0.005 second-norm=T", sep = ""))
+      if (!zen2 %in% values$opt[["chs"]]) {
+        leval(paste("COPY sig=", flt2, " tag=NORM", sep = ""))
+        leval(paste("ROBUST-NORM sig=", zen2, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
- 
+
       equiv_mode <- T
 
       pops.lib <- pops.libs[2]
@@ -1750,9 +1751,26 @@ load.data <- observeEvent( values$file.details , {
 
     ret <- leval(cmd)
 
+    # ----- Create .annot format file from POPS output --------
+    class_p <- ret$POPS$E$PRED
+    start_p <- ret$POPS$E$START
+    stop_p <- ret$POPS$E$STOP
+    df_pops <- data.frame(matrix(ncol = 6, nrow = length(class_p)))
+    df_pops[is.na(df_pops)] <- "."
+    x <- c("class", "instance", "channel", "start", "stop", "meta")
+    colnames(df_pops) <- x
+    df_pops$class <- class_p
+    df_pops$start <- start_p
+    df_pops$stop <- stop_p
+    #-----------------------------------------------------------
+
     values$pops[["pops"]] <- ret$POPS$BL
     values$pops[["pops.epochs"]] <- ret$POPS$E
     values$pops[["pops.stages"]] <- ret$POPS$SS
+    values$pops[["pops.download"]] <- df_pops
+
+    # Enable download_pops button after POPS prediction
+    shinyjs::enable("download_pops")
 
     if (equiv_mode) {
       values$pops[["pops.features"]] <- ret$POPS$E_FTR
@@ -1900,7 +1918,6 @@ load.data <- observeEvent( values$file.details , {
 
 
   output$plot.pops.features <- renderPlot({
-
     req(input$sel.pops.features2)
     ftr <- input$sel.pops.features2
     par(mar = c(0, 0, 0, 0))
@@ -1922,7 +1939,16 @@ load.data <- observeEvent( values$file.details , {
   #  lheatmap( df$E , df$FTR , df$X , win=0.05 )
   # })
 
-
+  # Download data frame
+  output$download_pops <- downloadHandler(
+    # file <- gsub("\\..*", "_pops.txt", values$file.details$edf.name),
+    filename = function() {
+      gsub("\\..*", "_pops.txt", values$file.details$edf.name)
+    },
+    content = function(file) {
+      write.table(values$pops[["pops.download"]], file, sep = "\t", row.names = F, col.names = T, quote = F)
+    }
+  )
 
   # ------------------------------------------------------------
   # Signal views
@@ -1944,11 +1970,12 @@ load.data <- observeEvent( values$file.details , {
         rep(0.5, length(values$opt[["ss"]]$E[inc])),
         col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
         axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i",
-	xlim = c(0 , values$opt[["init.secs"]]  ) )
+        xlim = c(0, values$opt[["init.secs"]])
+      )
     } else {
       # just fill in blank
-      dd <- seq(0, values$opt[["init.secs"]] , values$elen )
-      plot( dd , rep(0.5, length(dd) ), axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i" )
+      dd <- seq(0, values$opt[["init.secs"]], values$elen)
+      plot(dd, rep(0.5, length(dd)), axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i")
     }
   })
 
@@ -1957,7 +1984,7 @@ load.data <- observeEvent( values$file.details , {
     par(mar = c(0, 0, 0, 0))
     plot(values$view[["secview"]], c(0.5, 0.5),
       col = "black", lwd = 5, type = "l", axes = F, ylab = "", xlab = "",
-      ylim = c(0, 1), xlim = c(0, values$opt[["init.secs"]] ), xaxs = "i", yaxs = "i"
+      ylim = c(0, 1), xlim = c(0, values$opt[["init.secs"]]), xaxs = "i", yaxs = "i"
     )
   })
 
@@ -1966,53 +1993,52 @@ load.data <- observeEvent( values$file.details , {
 
   output$signal.view <- renderPlot(
     {
-      req( c(input$channels, input$annots) )
-      req( length( input$channels ) != 0 || length(  input$annots ) != 0 )
+      req(c(input$channels, input$annots))
+      req(length(input$channels) != 0 || length(input$annots) != 0)
 
       edf.chs <- lchs()
       edf.annots <- lannots()
-      chk.chs <- length( input$channels ) == 0 || all( input$channels %in% edf.chs )
-      chk.annots <- length( input$annots ) == 0 || all( input$annots %in% edf.annots )
-      if ( ! chk.chs ) cat( "could not find all CHS... quitting\n"  )
-      if ( ! chk.annots ) cat( "could not find all ANNOTS... quitting\n" )
-      req( chk.chs )
-      req( chk.annots )
-      
+      chk.chs <- length(input$channels) == 0 || all(input$channels %in% edf.chs)
+      chk.annots <- length(input$annots) == 0 || all(input$annots %in% edf.annots)
+      if (!chk.chs) cat("could not find all CHS... quitting\n")
+      if (!chk.annots) cat("could not find all ANNOTS... quitting\n")
+      req(chk.chs)
+      req(chk.annots)
+
       # all epochs
       dfe <- values$opt[["init.epochs"]][, c("START", "STOP")]
 
       secview <- values$view[["secview"]]
-#     epochs <- values$view[["epochs"]]
+      #     epochs <- values$view[["epochs"]]
 
       bp <- values$view[["bandpass"]]
       bpflt <- values$view[["bpflt"]]
 
-      df <- values$opt[["init.epochs.aligned"]] 
+      df <- values$opt[["init.epochs.aligned"]]
 
       isolate({
-
-	# default is to show first epoch secview = (0,30)
+        # default is to show first epoch secview = (0,30)
 
         # this table holds epoch/second offset information
-	# i.e. need this look-up to work for EDF+D
+        # i.e. need this look-up to work for EDF+D
         #    df <- values$opt[["init.epochs"]][, c("E", "HMS", "INTERVAL")]
 
-        if ( is.null(secview) ) {
-          secview <- c(0,30) 
+        if (is.null(secview)) {
+          secview <- c(0, 30)
           values$view[["raw.signals"]] <- T
         }
 
         # compile final values: epochs and seconds (always round to nearest whole second)
-        secs <- c( floor( secview[1] ) , ceiling( secview[2] ) ) 
-        if ( secs[1] == secs[2] ) secs[2] <- secs[2] + 1
-	
-#        cat( "seconds: " , secs , "\n" )
+        secs <- c(floor(secview[1]), ceiling(secview[2]))
+        if (secs[1] == secs[2]) secs[2] <- secs[2] + 1
+
+        #        cat( "seconds: " , secs , "\n" )
 
         # update raw signals status as needed: if more than 5 mins, use summary stats
-        values$view[["raw.signals"]] <- (secs[2] - secs[1] ) < 5 * 60 
-	
+        values$view[["raw.signals"]] <- (secs[2] - secs[1]) < 5 * 60
+
         annots <- input$annots
-        chs <-  input$channels 
+        chs <- input$channels
         na <- length(annots)
         nc <- length(chs)
 
@@ -2027,8 +2053,8 @@ load.data <- observeEvent( values$file.details , {
         xr <- range(x0, secs[2])
 
         # y-axis
-        cfac <- 3    # channel : annotation y-expansion factor
-        sfac <- 1.5  #           spanning factor (only for raw signals, not summ stats)
+        cfac <- 3 # channel : annotation y-expansion factor
+        sfac <- 1.5 #           spanning factor (only for raw signals, not summ stats)
 
         # i.e. give chs x3 vertical space; +1 is spacer
         yinc <- 1.0 / (cfac * nc + na + 1)
@@ -2062,13 +2088,15 @@ load.data <- observeEvent( values$file.details , {
         #
         # Zoomed-in hypnogram at top
         #
-        stgs <- values$opt[["ss"]][,c("E","STAGE","START_SEC","STOP_SEC")]
-	stgs <- stgs[ stgs$START_SEC < secs[2] & stgs$STOP_SEC >= secs[1] , ]
-        if ( dim(stgs)[1] > 0 )
-          for (e in 1:(dim(stgs)[1]) )
-            rect(stgs$START_SEC[e], 0.99, stgs$STOP_SEC[e], 1.00, col = lstgcols(stgs$STAGE[e]), border = NA )
+        stgs <- values$opt[["ss"]][, c("E", "STAGE", "START_SEC", "STOP_SEC")]
+        stgs <- stgs[stgs$START_SEC < secs[2] & stgs$STOP_SEC >= secs[1], ]
+        if (dim(stgs)[1] > 0) {
+          for (e in 1:(dim(stgs)[1])) {
+            rect(stgs$START_SEC[e], 0.99, stgs$STOP_SEC[e], 1.00, col = lstgcols(stgs$STAGE[e]), border = NA)
+          }
+        }
 
-	
+
         #
         # Signals
         #
@@ -2079,16 +2107,14 @@ load.data <- observeEvent( values$file.details , {
           #
 
           if (values$view[["raw.signals"]]) {
-
             #
             # Pull raw signal data
             #
 
             yidx <- 0
             for (ch in rev(chs)) {
-              
-              dat <- ldata.intervals( list( secs ) , chs = ch)
-	      
+              dat <- ldata.intervals(list(secs), chs = ch)
+
               ts <- dat$SEC
               empty <- length(ts) == 0
 
@@ -2224,11 +2250,11 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$master_click, {
     if (is.null(input$master_brush)) {
       clear_sel_inst()
-      s <- floor( input$master_click$x )
-      if ( s < values$elen / 2 ) {
-       values$view[["secview"]]  <- c( 0 , values$elen )
+      s <- floor(input$master_click$x)
+      if (s < values$elen / 2) {
+        values$view[["secview"]] <- c(0, values$elen)
       } else {
-       values$view[["secview"]] <- c( s - values$elen/2 , s + values$elen/2 )
+        values$view[["secview"]] <- c(s - values$elen / 2, s + values$elen / 2)
       }
     }
   })
@@ -2236,7 +2262,7 @@ load.data <- observeEvent( values$file.details , {
   # double-click clears all
   observeEvent(input$master_dblclick, {
     clear_sel_inst()
-    values$view[["secview"]] <- c(0, values$elen ) 
+    values$view[["secview"]] <- c(0, values$elen)
   })
 
   # brush will zoom in to range of epochs
@@ -2247,8 +2273,8 @@ load.data <- observeEvent( values$file.details , {
       if (brush$xmin < 0 || brush$xmax > values$opt[["init.secs"]]) {
         session$resetBrush("master_brush")
       } else {
-        values$view[["secview"]] <- c( brush$xmin, brush$xmax )
-       }
+        values$view[["secview"]] <- c(brush$xmin, brush$xmax)
+      }
     } else {
       values$secview[["secview"]] <- NULL
     }
@@ -2259,7 +2285,7 @@ load.data <- observeEvent( values$file.details , {
     req(values$hasdata)
     session$resetBrush("master_brush")
     clear_sel_inst()
-    values$view[["secview"]] <- c(0 , values$opt[["init.secs"]] )
+    values$view[["secview"]] <- c(0, values$opt[["init.secs"]])
   })
 
   # shrink view
@@ -2269,10 +2295,10 @@ load.data <- observeEvent( values$file.details , {
     clear_sel_inst()
     # current size, seconds
     sz <- diff(values$view[["secview"]])
-    if ( sz > 1 ) { 
-     s1 <- max( 0 , values$view[["secview"]][1] + sz * 0.25 )
-     s2 <- min( values$opt[["init.secs"]] , values$view[["secview"]][2] - sz * 0.25 )
-     values$view[["secview"]] <- c( s1, s2 )
+    if (sz > 1) {
+      s1 <- max(0, values$view[["secview"]][1] + sz * 0.25)
+      s2 <- min(values$opt[["init.secs"]], values$view[["secview"]][2] - sz * 0.25)
+      values$view[["secview"]] <- c(s1, s2)
     }
   })
 
@@ -2280,11 +2306,11 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$winex, {
     req(values$hasdata)
     session$resetBrush("master_brush")
-    clear_sel_inst()    
+    clear_sel_inst()
     sz <- diff(values$view[["secview"]])
-    s1 <- max( 0 , values$view[["secview"]][1] - sz * 0.25 )
-    s2 <- min( values$opt[["init.secs"]] , values$view[["secview"]][2] + sz * 0.25 )
-    values$view[["secview"]] <- c( s1, s2 )
+    s1 <- max(0, values$view[["secview"]][1] - sz * 0.25)
+    s2 <- min(values$opt[["init.secs"]], values$view[["secview"]][2] + sz * 0.25)
+    values$view[["secview"]] <- c(s1, s2)
   })
 
   # Apply bandpass filter to all signals
@@ -2305,7 +2331,7 @@ load.data <- observeEvent( values$file.details , {
     xx <- range(as.numeric(unlist(strsplit(input$sel.inst, " "))))
     # make window 1:1:1 , i.e. annot in center
     sz <- diff(xx)
-    values$view[["secview"]] <- c( max( 0 , xx[1] - sz * 1.00 ) , xx[2] + sz * 1.00 )  
+    values$view[["secview"]] <- c(max(0, xx[1] - sz * 1.00), xx[2] + sz * 1.00)
     session$resetBrush("master_brush")
     session$resetBrush("zoom_brush")
   })
@@ -2315,25 +2341,26 @@ load.data <- observeEvent( values$file.details , {
     # default to 30-second view centered around click point
     xx <- values$view[["secview"]]
     xx <- mean(xx)
-    xx <- c( xx-15 , xx+15 )
-    if ( xx[1] < 0 ) xx <- c(0,30) 
+    xx <- c(xx - 15, xx + 15)
+    if (xx[1] < 0) xx <- c(0, 30)
     values$view[["secview"]] <- xx
   })
 
   observeEvent(input$zoom_brush, {
     brush <- input$zoom_brush
-    values$view[["secview"]] <- c( brush$xmin , brush$xmax )
+    values$view[["secview"]] <- c(brush$xmin, brush$xmax)
   })
 
 
   observeEvent(input$button_epoch_prv, {
     req(values$hasdata)
     clear_sel_inst()
-    session$resetBrush("master_brush")    
+    session$resetBrush("master_brush")
     shft <- values$view[["secview"]][2] - values$view[["secview"]][1]
     values$view[["secview"]] <- values$view[["secview"]] - shft
-    if ( values$view[["secview"]][1] < 0 )
-       values$view[["secview"]] <- c(0 , shft )
+    if (values$view[["secview"]][1] < 0) {
+      values$view[["secview"]] <- c(0, shft)
+    }
   })
 
   observeEvent(input$button_epoch_nxt, {
@@ -2343,27 +2370,30 @@ load.data <- observeEvent( values$file.details , {
 
     shft <- values$view[["secview"]][2] - values$view[["secview"]][1]
     values$view[["secview"]] <- values$view[["secview"]] + shft
-    if ( values$view[["secview"]][2] > values$opt[["init.secs"]] ) 
-       values$view[["secview"]] <- c(  values$opt[["init.secs"]] - shft ,  values$opt[["init.secs"]] )
+    if (values$view[["secview"]][2] > values$opt[["init.secs"]]) {
+      values$view[["secview"]] <- c(values$opt[["init.secs"]] - shft, values$opt[["init.secs"]])
+    }
   })
 
 
   output$info2 <-
     renderUI({
-      req(values$hasdata, values$view[[ "secview" ]] )
-      stgs <- values$opt[["ss"]][,c("E","STAGE","START_SEC","STOP_SEC")]
-#      cat( "secs", values$view[[ "secview" ]] , "\n" )
-#      print(stgs)
-      stgs <- stgs[ stgs$START_SEC < values$view[[ "secview" ]][2] & stgs$STOP_SEC >= values$view[[ "secview" ]][1] , ]
-#      print(stgs)
-      empty <- dim(stgs)[1] == 0 
-      from.epoch <- ifelse( empty , -1 , min( stgs$E ) )
-      to.epoch <- ifelse( empty , -1 , max( stgs$E ) ) 
-      from.sec <- floor(  values$view[[ "secview" ]][1] )
-      to.sec <- ceiling( values$view[[ "secview" ]][2] )
-      HTML(paste( "Interval:" , from.sec , "-" , to.sec , "(",to.sec - from.sec,"secs )<br>",
-             "Epoch(s):", ifelse( empty , "N/A", ifelse( from.epoch == to.epoch , from.epoch , paste( from.epoch, "-" , to.epoch ) ) ) , "<br>" ,
-             ifelse(values$view[["bandpass"]], paste(" (w/", values$view[["bpflt"]][1], "-", values$view[["bpflt"]][2], "Hz filter)" ), " (unfiltered)") ) )
+      req(values$hasdata, values$view[["secview"]])
+      stgs <- values$opt[["ss"]][, c("E", "STAGE", "START_SEC", "STOP_SEC")]
+      #      cat( "secs", values$view[[ "secview" ]] , "\n" )
+      #      print(stgs)
+      stgs <- stgs[stgs$START_SEC < values$view[["secview"]][2] & stgs$STOP_SEC >= values$view[["secview"]][1], ]
+      #      print(stgs)
+      empty <- dim(stgs)[1] == 0
+      from.epoch <- ifelse(empty, -1, min(stgs$E))
+      to.epoch <- ifelse(empty, -1, max(stgs$E))
+      from.sec <- floor(values$view[["secview"]][1])
+      to.sec <- ceiling(values$view[["secview"]][2])
+      HTML(paste(
+        "Interval:", from.sec, "-", to.sec, "(", to.sec - from.sec, "secs )<br>",
+        "Epoch(s):", ifelse(empty, "N/A", ifelse(from.epoch == to.epoch, from.epoch, paste(from.epoch, "-", to.epoch))), "<br>",
+        ifelse(values$view[["bandpass"]], paste(" (w/", values$view[["bpflt"]][1], "-", values$view[["bpflt"]][2], "Hz filter)"), " (unfiltered)")
+      ))
     })
 
 
@@ -2394,23 +2424,23 @@ load.data <- observeEvent( values$file.details , {
   })
 
 
- observeEvent( input$dofilter , {
-  req( input$filter )
-  pris <- paste( input$filter , collapse="," )
-  cmd <-  paste( "FILTER fft sig=" , pris , " bandpass=" , input$flwr , "," , input$fupr, " tw=" , input$ftw, " ripple=" , input$fripple, sep="" )
-  values$manipout <- capture.output( leval( cmd ) ) 
-  update()
- } )
+  observeEvent(input$dofilter, {
+    req(input$filter)
+    pris <- paste(input$filter, collapse = ",")
+    cmd <- paste("FILTER fft sig=", pris, " bandpass=", input$flwr, ",", input$fupr, " tw=", input$ftw, " ripple=", input$fripple, sep = "")
+    values$manipout <- capture.output(leval(cmd))
+    update()
+  })
 
 
- observeEvent( input$dorename , {
-   req( input$renameold , input$renamenew )
-   values$manipout <- capture.output( leval( paste( "RENAME sig=" , input$renameold , " new=" , input$renamenew , sep="" ) ) )
-   update()
- } )
+  observeEvent(input$dorename, {
+    req(input$renameold, input$renamenew)
+    values$manipout <- capture.output(leval(paste("RENAME sig=", input$renameold, " new=", input$renamenew, sep = "")))
+    update()
+  })
 
 
- observeEvent(input$dodrop, {
+  observeEvent(input$dodrop, {
     req(input$drop)
     values$manipout <- capture.output(leval(paste("SIGNALS drop=", input$drop, sep = "")))
     update()
@@ -2433,32 +2463,32 @@ load.data <- observeEvent( values$file.details , {
 
 
   observeEvent(input$domask, {
-    req( c( input$mask.annots, input$mask.expr) )
-    na <- length( input$mask.annots )
-    has.expr <- gsub( " ", "" , input$mask.expr ) != "" 
-    if ( na != 0 && has.expr )
-    {
-     values$manipout <- " *** cannot specify both annotations and an expression together *** "
-     return
-   }
+    req(c(input$mask.annots, input$mask.expr))
+    na <- length(input$mask.annots)
+    has.expr <- gsub(" ", "", input$mask.expr) != ""
+    if (na != 0 && has.expr) {
+      values$manipout <- " *** cannot specify both annotations and an expression together *** "
+      return
+    }
 
-   if ( na == 1 )
-   {
-    if ( input$mask.inc == "1" ) cmd <- paste("MASK mask-ifnot=" , input$mask.annots , sep="" )
-    else cmd <- paste("MASK mask-if=" , input$mask.annots , sep="" )    
-   }
-   else if ( na > 1 )
-   {
-     if ( input$mask.inc == "1" ) cmd <- paste( "MASK all & MASK unmask-if=" , paste( input$mask.annots, collapse="," ) , sep="" )
-     else cmd <- paste( "MASK mask-if=" , paste( input$mask.annots, collapse="," ) , sep="" )
-   }
-   else
-   {
-    cmd <- paste( "MASK" , input$mask.expr )
-    if ( input$mask.inc == "0" ) cmd <- paste( cmd , "& MASK flip" )
-   }
-   values$manipout <- capture.output(leval(cmd))
-   update()
+    if (na == 1) {
+      if (input$mask.inc == "1") {
+        cmd <- paste("MASK mask-ifnot=", input$mask.annots, sep = "")
+      } else {
+        cmd <- paste("MASK mask-if=", input$mask.annots, sep = "")
+      }
+    } else if (na > 1) {
+      if (input$mask.inc == "1") {
+        cmd <- paste("MASK all & MASK unmask-if=", paste(input$mask.annots, collapse = ","), sep = "")
+      } else {
+        cmd <- paste("MASK mask-if=", paste(input$mask.annots, collapse = ","), sep = "")
+      }
+    } else {
+      cmd <- paste("MASK", input$mask.expr)
+      if (input$mask.inc == "0") cmd <- paste(cmd, "& MASK flip")
+    }
+    values$manipout <- capture.output(leval(cmd))
+    update()
   })
 
   observeEvent(input$flipmask, {
@@ -2482,17 +2512,17 @@ load.data <- observeEvent( values$file.details , {
   observeEvent(input$reset, {
     req(values$hasdata)
     leval("MASK clear")
-    try( lrefresh() )
+    try(lrefresh())
     init()
     update()
   })
 
- 
+
   observeEvent(input$reepoch, {
     req(values$hasdata)
     # note, this will destory any current MASK
     isolate({
-      ret <- leval( paste( "RE & EPOCH align verbose dur=" , values$elen , " & DUMP-MASK " , sep="" ) )
+      ret <- leval(paste("RE & EPOCH align verbose dur=", values$elen, " & DUMP-MASK ", sep = ""))
       values$opt[["curr.epochs"]] <- ret$EPOCH$E
       values$opt[["curr.ne"]] <- dim(ret$EPOCH$E)[1]
       values$opt[["unmasked"]] <- ret$DUMP_MASK$E$E[ret$DUMP_MASK$E$EMASK == 0]
@@ -2507,158 +2537,159 @@ load.data <- observeEvent( values$file.details , {
   # Age norms
   #
 
-  calcNormativeData <- reactive({    
-    req( c( input$norm.eegC, input$norm.eegF, input$norm.eegO ) ) 
-    req( values$elen == 30 )
-    
+  calcNormativeData <- reactive({
+    req(c(input$norm.eegC, input$norm.eegF, input$norm.eegO))
+    req(values$elen == 30)
+
     # get normative data
     # calculate values for this particular sample
 
-    load( "data/SleepEEGAgeNorm.RData" )
+    load("data/SleepEEGAgeNorm.RData")
 
-  # OCC "alpha_W_0"
-  # CEN "theta_N1_C", "sigma_N2_C", "delta_N3_C"
-  # CEN/FRT(N2) :     
-  
-  has.cen <- ( ! is.null( input$norm.eegC ) ) && input$norm.eegC != "--none--" && input$norm.eegC != "" 
-  has.frt <- ( ! is.null( input$norm.eegF ) ) && input$norm.eegF != "--none--" && input$norm.eegF != "" 
-  has.occ <- ( ! is.null( input$norm.eegO ) ) && input$norm.eegO != "--none--" && input$norm.eegO != "" 
+    # OCC "alpha_W_0"
+    # CEN "theta_N1_C", "sigma_N2_C", "delta_N3_C"
+    # CEN/FRT(N2) :
 
-  req( has.cen || has.frt || has.occ ) 
+    has.cen <- (!is.null(input$norm.eegC)) && input$norm.eegC != "--none--" && input$norm.eegC != ""
+    has.frt <- (!is.null(input$norm.eegF)) && input$norm.eegF != "--none--" && input$norm.eegF != ""
+    has.occ <- (!is.null(input$norm.eegO)) && input$norm.eegO != "--none--" && input$norm.eegO != ""
 
-  sigs <- character()
-  if ( has.cen ) sigs <- c( sigs , input$norm.eegC )
-  if ( has.occ ) sigs <- c( sigs , input$norm.eegO )
-  if ( has.frt ) sigs <- c( sigs , input$norm.eegF )
-  sigs <- unique( sigs ) 
-  req( length( sigs ) != 0 ) 
-  
-  # PSD, w/ user-defined total power 
-  k1 <- leval( paste( "EPOCH align & STAGE & PSD epoch total=0.5-20 sig=" , sigs , sep="" ) ) 
-  ss <- k1$STAGE$E[, c("E","STAGE") ]
-  alpha <- theta <- sigma <- delta <- data.frame()
-  totalO <- totalC <- data.frame()
+    req(has.cen || has.frt || has.occ)
 
-  if ( has.occ ) {
-   alpha <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
-   totalO <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegO , c("E","PSD") ]
+    sigs <- character()
+    if (has.cen) sigs <- c(sigs, input$norm.eegC)
+    if (has.occ) sigs <- c(sigs, input$norm.eegO)
+    if (has.frt) sigs <- c(sigs, input$norm.eegF)
+    sigs <- unique(sigs)
+    req(length(sigs) != 0)
+
+    # PSD, w/ user-defined total power
+    k1 <- leval(paste("EPOCH align & STAGE & PSD epoch total=0.5-20 sig=", sigs, sep = ""))
+    ss <- k1$STAGE$E[, c("E", "STAGE")]
+    alpha <- theta <- sigma <- delta <- data.frame()
+    totalO <- totalC <- data.frame()
+
+    if (has.occ) {
+      alpha <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "ALPHA" & k1$PSD$B_CH_E$CH == input$norm.eegO, c("E", "PSD")]
+      totalO <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegO, c("E", "PSD")]
+    }
+    if (has.cen) {
+      theta <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "THETA" & k1$PSD$B_CH_E$CH == input$norm.eegC, c("E", "PSD")]
+      sigma <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "SIGMA" & k1$PSD$B_CH_E$CH == input$norm.eegC, c("E", "PSD")]
+      delta <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "DELTA" & k1$PSD$B_CH_E$CH == input$norm.eegC, c("E", "PSD")]
+      totalC <- k1$PSD$B_CH_E[k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegC, c("E", "PSD")]
+    }
+
+
+    # merge/subset
+    if (has.occ) {
+      alpha <- merge(ss, alpha, by = "E")
+      totalO <- merge(ss, totalO, by = "E")
+      alpha <- alpha$PSD[alpha$STAGE == "W"]
+      totalOW <- totalO$PSD[totalO$STAGE == "W"]
+    }
+
+    if (has.cen) {
+      theta <- merge(ss, theta, by = "E")
+      sigma <- merge(ss, sigma, by = "E")
+      delta <- merge(ss, delta, by = "E")
+      totalC <- merge(ss, totalC, by = "E")
+
+      theta <- theta$PSD[theta$STAGE == "N1"]
+      sigma <- sigma$PSD[sigma$STAGE == "N2"]
+      delta <- delta$PSD[delta$STAGE == "N3"]
+      totalCN1 <- totalC$PSD[totalC$STAGE == "N1"]
+      totalCN2 <- totalC$PSD[totalC$STAGE == "N2"]
+      totalCN3 <- totalC$PSD[totalC$STAGE == "N3"]
+    }
+
+
+    # outlier removal and normalization
+    if (has.occ) {
+      alpha <- median(outliers(alpha) / outliers(totalOW), na.rm = T)
+    }
+
+    if (has.cen) {
+      theta <- median(outliers(theta) / outliers(totalCN1), na.rm = T)
+      sigma <- median(outliers(sigma) / outliers(totalCN2), na.rm = T)
+      delta <- median(outliers(delta) / outliers(totalCN3), na.rm = T)
+    }
+
+    # others to add...
+    # "spindle_amp_c", "spindle_amp_f"
+    # "spindle_dens_c", "spindle_dens_f",
+    # "spindle_dur_c",  "spindle_dur_f"
+    # "spindle_freq_c", "spindle_freq_f"
+
+    res1 <- list()
+    if (has.occ) {
+      res1[["alpha"]] <- alpha
+      res1[["ref.alpha"]] <- alpha_W_0
+    }
+
+    if (has.cen) {
+      res1[["theta"]] <- theta
+      res1[["sigma"]] <- sigma
+      res1[["delta"]] <- delta
+
+      res1[["ref.theta"]] <- theta_N1_C
+      res1[["ref.sigma"]] <- sigma_N2_C
+      res1[["ref.delta"]] <- delta_N3_C
+    }
+
+    res1
+  })
+
+
+  fnorm.plot1 <- function(d, val, age, sex, label) {
+    yage <- d$Age_years
+    ageega <- c(yage, rev(yage))
+    # reference range:
+    ylim <- range(d[, -1], na.rm = T)
+    ysp <- ylim[2] - ylim[1]
+    ylim <- c(ylim[1] - ysp * 0.2, ylim[2] + ysp * 0.2)
+    if (ylim[1] < 0) ylim[1] <- 0
+    plot(ageega, c(d[, 2], rev(d[, 3])), type = "n", xlab = "log(Age)", ylab = label, ylim = ylim)
+    if (sex == "M") {
+      polygon(ageega, c(d[, 2], rev(d[, 3])), col = rgb(0, 0, 255, 30, max = 255), border = NA)
+      polygon(ageega, c(d[, 4], rev(d[, 5])), col = rgb(0, 0, 255, 30, max = 255), border = NA)
+      polygon(ageega, c(d[, 6], rev(d[, 7])), col = rgb(0, 0, 255, 30, max = 255), border = NA)
+    } else {
+      polygon(ageega, c(d[, 8], rev(d[, 9])), col = rgb(255, 0, 0, 30, max = 255), border = NA)
+      polygon(ageega, c(d[, 10], rev(d[, 11])), col = rgb(255, 0, 0, 30, max = 255), border = NA)
+      polygon(ageega, c(d[, 12], rev(d[, 13])), col = rgb(255, 0, 0, 30, max = 255), border = NA)
+    }
+
+    abline(h = val, col = ifelse(sex == "M", "blue", "red"), lwd = 0.5)
+    points(age, val, col = ifelse(sex == "M", "blue", "red"), cex = 2, pch = 20)
   }
-  if ( has.cen ) {
-   theta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "THETA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-   sigma <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "SIGMA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-   delta <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "DELTA" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
-   totalC <- k1$PSD$B_CH_E[ k1$PSD$B_CH_E$B == "TOTAL" & k1$PSD$B_CH_E$CH == input$norm.eegC , c("E","PSD") ]
- }
-  
- 
-  # merge/subset
-  if ( has.occ ) {
-   alpha  <- merge( ss , alpha , by="E" )
-   totalO <- merge( ss , totalO , by="E" )
-   alpha <- alpha$PSD[ alpha$STAGE == "W" ]
-   totalOW <- totalO$PSD[ totalO$STAGE == "W" ]
 
-  }
+  output$norm.lab <- renderText({
+    "Age/sex sleep EEG from norms Sun et al (2023) | https://doi.org/10.1016/j.neurobiolaging.2023.01.006"
+  })
 
-  if ( has.cen ) { 
-   theta  <- merge( ss , theta , by="E" )
-   sigma  <- merge( ss , sigma , by="E" )
-   delta  <- merge( ss , delta , by="E" )
-   totalC <- merge( ss , totalC , by="E" )
+  output$norm.plots <- renderPlot({
+    req(values$hasdata)
 
-   theta <- theta$PSD[ theta$STAGE == "N1" ]
-   sigma <- sigma$PSD[ sigma$STAGE == "N2" ]
-   delta <- delta$PSD[ delta$STAGE == "N3" ]
-   totalCN1 <- totalC$PSD[ totalC$STAGE == "N1" ]
-   totalCN2 <- totalC$PSD[ totalC$STAGE == "N2" ]
-   totalCN3 <- totalC$PSD[ totalC$STAGE == "N3" ]  
-  }
+    res <- calcNormativeData()
+
+    par(mfcol = c(2, 2), mar = c(3, 4, 1, 1))
+    if ("ref.alpha" %in% names(res)) {
+      fnorm.plot1(res$ref.alpha, res$alpha, input$norm.age, input$norm.sex, "Occ. Alpha (W)")
+    } else {
+      frame()
+    }
 
 
-  # outlier removal and normalization
-  if ( has.occ ) { 
-   alpha <- median( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
-  }
-
-  if ( has.cen ) {
-   theta <- median( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
-   sigma <- median( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
-   delta <- median( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
-  }
-
-# others to add...
-# "spindle_amp_c", "spindle_amp_f"
-# "spindle_dens_c", "spindle_dens_f",
-# "spindle_dur_c",  "spindle_dur_f"
-# "spindle_freq_c", "spindle_freq_f"
-
- res1 <- list()
- if ( has.occ ) {
-  res1[[ "alpha" ]] = alpha 
-  res1[[ "ref.alpha" ]] = alpha_W_0 
- }
-
- if ( has.cen ) {
-   res1[[ "theta" ]] = theta
-   res1[[ "sigma" ]] = sigma
-   res1[[ "delta" ]] = delta 
-
-   res1[[ "ref.theta" ]] = theta_N1_C
-   res1[[ "ref.sigma" ]] = sigma_N2_C
-   res1[[ "ref.delta" ]] = delta_N3_C
- }
-
-  res1 
-})
-
-
-fnorm.plot1 <- function( d , val, age , sex , label ) {
- yage <- d$Age_years
- ageega <- c( yage, rev(yage) )
- # reference range:
- ylim <- range( d[,-1] , na.rm=T )
- ysp <- ylim[2] - ylim[1]
- ylim <- c( ylim[1] - ysp * 0.2 , ylim[2] + ysp * 0.2 )
- if ( ylim[1] < 0 ) ylim[1] = 0
- plot( ageega , c( d[,2] , rev(d[,3] ) ) , type="n" , xlab="log(Age)" , ylab=label , ylim = ylim )
-  if ( sex == "M" ) { 
-   polygon( ageega , c( d[,2] , rev(d[,3] ) ) , col= rgb( 0,0,255,30,max=255) , border=NA)
-   polygon( ageega , c( d[,4] , rev(d[,5] ) ) , col= rgb( 0,0,255,30,max=255), border=NA)
-   polygon( ageega , c( d[,6] , rev(d[,7] ) ) , col= rgb( 0,0,255,30,max=255), border=NA)
- } else { 
-  polygon( ageega , c( d[,8] , rev(d[,9] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
-  polygon( ageega , c( d[,10] , rev(d[,11] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
-  polygon( ageega , c( d[,12] , rev(d[,13] ) ) , col= rgb( 255,0,0,30,max=255), border=NA)
- }
-
- abline( h = val , col = ifelse( sex == "M" , "blue" , "red" ) , lwd=0.5 )
- points( age , val , col = ifelse( sex == "M" , "blue" , "red" ) , cex=2 , pch=20 )
- 
-}
-
-output$norm.lab <- renderText({ "Age/sex sleep EEG from norms Sun et al (2023) | https://doi.org/10.1016/j.neurobiolaging.2023.01.006" } ) 
-
-output$norm.plots <- renderPlot({
-     req(values$hasdata )
-
-     res <- calcNormativeData()
-
-     par( mfcol=c(2,2) , mar=c(3,4,1,1) )
-     if ( "ref.alpha" %in% names(res) ) { 
-      fnorm.plot1( res$ref.alpha , res$alpha , input$norm.age , input$norm.sex , "Occ. Alpha (W)" )
-     } else {
-       frame()
-     }
-
-
-  if ( "ref.theta" %in% names(res) ) {
-     fnorm.plot1( res$ref.theta , res$theta , input$norm.age , input$norm.sex , "Cen. theta (N1)" )
-     fnorm.plot1( res$ref.sigma , res$sigma , input$norm.age , input$norm.sex , "Cen. sigma (N2)" )	  
-     fnorm.plot1( res$ref.delta , res$delta , input$norm.age , input$norm.sex , "Cen. delta (N3)" )
-     } else {
-      frame(); frame(); frame();
-     }
-     
+    if ("ref.theta" %in% names(res)) {
+      fnorm.plot1(res$ref.theta, res$theta, input$norm.age, input$norm.sex, "Cen. theta (N1)")
+      fnorm.plot1(res$ref.sigma, res$sigma, input$norm.age, input$norm.sex, "Cen. sigma (N2)")
+      fnorm.plot1(res$ref.delta, res$delta, input$norm.age, input$norm.sex, "Cen. delta (N3)")
+    } else {
+      frame()
+      frame()
+      frame()
+    }
   })
 
 
@@ -2701,8 +2732,8 @@ output$norm.plots <- renderPlot({
 
 
 
- # ------------------------------------------------------------
- # annotation mappings
+  # ------------------------------------------------------------
+  # annotation mappings
 
   output$csmappings <- DT::renderDataTable({
     req(values$canonical[["cs"]])
@@ -2732,8 +2763,8 @@ output$norm.plots <- renderPlot({
 
 
 
-# ------------------------------------------------------------
- # channel mappings
+  # ------------------------------------------------------------
+  # channel mappings
 
   output$chmappings <- DT::renderDataTable({
     req(values$canonical[["ch"]])
@@ -2940,164 +2971,166 @@ output$norm.plots <- renderPlot({
 
 
 
-# ------------------------------------------------------------
-# ExE explorer (time-series clustering)
+  # ------------------------------------------------------------
+  # ExE explorer (time-series clustering)
 
 
- observeEvent( input$do.exe , {
-    req( values$hasedf , input$exe.ch , values$opt[[ "maskset" ]] == F )
+  observeEvent(input$do.exe, {
+    req(values$hasedf, input$exe.ch, values$opt[["maskset"]] == F)
 
     # temp file for matrix
     exe.matfile <- tempfile()
 
-    cmd <- paste( "EXE sig=" , input$exe.ch , " mat=", exe.matfile ,
-                  " representative=" , input$exe.rep , " m=" , input$exe.m ,
-		  " t=" , input$exe.t , sep="" )
+    cmd <- paste("EXE sig=", input$exe.ch, " mat=", exe.matfile,
+      " representative=", input$exe.rep, " m=", input$exe.m,
+      " t=", input$exe.t,
+      sep = ""
+    )
 
-    k <- leval( cmd )
+    k <- leval(cmd)
 
     # save epoch/clsts
     values$exe.e <- k$EXE$E
     values$exe.k <- k$EXE$K
 
     # get matrix, and flip Y
-    values$exe.mat <- as.matrix( read.table( exe.matfile , header=F ) ) 
-    values$exe.mat <- t(values$exe.mat[ (dim(values$exe.mat)[1]:1) , ] )
+    values$exe.mat <- as.matrix(read.table(exe.matfile, header = F))
+    values$exe.mat <- t(values$exe.mat[(dim(values$exe.mat)[1]:1), ])
 
     # clean temp
     file.remove(exe.matfile)
-})
+  })
 
 
-# mini hypnograms
-output$exe.hypno1 <- renderPlot({
-    req(values$hasdata,values$hasstaging, values$exe.mat )
-
-    par(mar = c(0, 0, 0, 0))
-    # masked out
-    inc <- values$opt[["ss"]]$E %in% values$opt[["included"]]
-
-    plot(values$opt[["ss"]]$E[inc],
-        rep(0.5, length(values$opt[["ss"]]$E[inc])),
-        col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
-	axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
-      )
-})
-
-
-# mini hypnograms (2)
-output$exe.hypno2 <- renderPlot({
-    req(values$hasdata,values$hasstaging, values$exe.mat )
+  # mini hypnograms
+  output$exe.hypno1 <- renderPlot({
+    req(values$hasdata, values$hasstaging, values$exe.mat)
 
     par(mar = c(0, 0, 0, 0))
     # masked out
     inc <- values$opt[["ss"]]$E %in% values$opt[["included"]]
 
     plot(values$opt[["ss"]]$E[inc],
-        rep(0.5, length(values$opt[["ss"]]$E[inc])),
-        col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
-	axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
-      )
-})
-
- # ExE distance matrix
- output$exe.mat <- renderPlot({ 
-   req( values$exe.mat )
-   par(mar=c(0,0,0,0))
-   image( lwin( values$exe.mat , input$exe.win ), useRaster=T , col = rev(lturbo(100)))
- })
-
- # splits
- output$exe.clst <- renderPlot({
-   req( values$exe.e , values$exe.k , input$exe.ch )
-   e <- values$exe.e
-   d <- values$exe.k
-   ne <- dim(e)[1]
-   n  <- dim(d)[1]
-   ks <- d$K
-  
-   # extract clusters
-   dt <- list()
-   for (k in 1:n) {
-     ekey <- d$E[d$K==ks[k]]
-     dt[[ k ] ] <- ldata( e = ekey , chs = input$exe.ch )[,4]
-   }
-   ylim <- range( unlist( dt ) )
-
-   par(mfcol=c(2*n,1), mar=c(0,0,0,0) )
-   for (ki in 1:n) {
-     k <- ks[ki]
-     ekey <- d$E[d$K==k]  
-     edat <- e$E[e$K==k]
-     plot( 1:ne , rep(0.5,ne), pch="|" , col = "#E0E0E0" ,axes=F , ylim=c(0,1.5) , xaxs="i" )
-     points( edat , rep(0.5,length(edat)), col= ki , pch="|" )
-     points( ekey , 0.5, col="black"    , pch=12 , cex=2 )
-     ylim1 <- range( dt[[ki] ] , na.rm=T)
-     xn <- length(dt[[ki] ])
-     xin <- -xn*0.02
-     plot( dt[[ki] ] , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , ylim = ylim1 , xlim=c(xin,xn ) , xaxs="i" )
-     ylim2 <- c( (ylim1[1]-ylim[1] ) / ( ylim[2] - ylim[1] ) , (ylim1[2]-ylim[1] ) / ( ylim[2] - ylim[1] ) )
-     ylim3 <- ylim1[1] + ( ylim2 * ( ylim1[2] - ylim1[1] ) )
-     lines( c(xin,xin) , ylim1 , col="black" , lwd=0.5 ) # full bar
-     lines( c(xin,xin) , ylim3 , col="red"   , lwd=2 ) # this range
-  }  
-})
-
-output$exe.view1 <- renderPlot({
-  req( values$exe.e1 , values$exe.c1, values$exe.mat , input$exe.ch )
-  par(mar=c(0,0,0,0))
-  plot( values$exe.e1 , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , xaxs="i" , col = values$exe.c1 , ylim = values$exe.ylim )
-})
-
-output$exe.view2 <- renderPlot({
-  req( values$exe.e2 , values$exe.c2, values$exe.mat , input$exe.ch )
-  par(mar=c(0,0,0,0))
-  plot( values$exe.e2 , type="l" , lwd=0.5, axes=F, ylab="" , xlab="" , xaxs="i" , col = values$exe.c2 , ylim = values$exe.ylim )
-})
+      rep(0.5, length(values$opt[["ss"]]$E[inc])),
+      col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
+      axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
+    )
+  })
 
 
-observeEvent(input$exe_hover, {
-#  cat( "input$exe_hover:" , input$exe_hover$x , input$exe_hover$y , "\n" )
-  ne <- values$opt[["ne"]]
-  e1 <- min( max( 1 , 1 + floor( input$exe_hover$x * ne ) ) , ne )
-  e2 <- min( max( 1 , 1 + floor( ( 1.0 - input$exe_hover$y ) * ne ) ) , ne ) 
-  values$exe.e1 <- ldata( e = e1 , chs = input$exe.ch )[,4]
-  values$exe.e2 <- ldata( e = e2 , chs = input$exe.ch )[,4]
-  values$exe.c1 <- values$exe.e$K[ values$exe.e$E == e1 ]
-  values$exe.c2 <- values$exe.e$K[ values$exe.e$E == e2 ]
-  values$exe.ylim <- range( c( values$exe.e1 , values$exe.e2 ) ) 
-})
+  # mini hypnograms (2)
+  output$exe.hypno2 <- renderPlot({
+    req(values$hasdata, values$hasstaging, values$exe.mat)
+
+    par(mar = c(0, 0, 0, 0))
+    # masked out
+    inc <- values$opt[["ss"]]$E %in% values$opt[["included"]]
+
+    plot(values$opt[["ss"]]$E[inc],
+      rep(0.5, length(values$opt[["ss"]]$E[inc])),
+      col = lstgcols(values$opt[["ss"]]$STAGE[inc]),
+      axes = F, ylim = c(0, 1), pch = "|", ylab = "", xaxs = "i", yaxs = "i", xlim = c(1, values$opt[["ne"]])
+    )
+  })
+
+  # ExE distance matrix
+  output$exe.mat <- renderPlot({
+    req(values$exe.mat)
+    par(mar = c(0, 0, 0, 0))
+    image(lwin(values$exe.mat, input$exe.win), useRaster = T, col = rev(lturbo(100)))
+  })
+
+  # splits
+  output$exe.clst <- renderPlot({
+    req(values$exe.e, values$exe.k, input$exe.ch)
+    e <- values$exe.e
+    d <- values$exe.k
+    ne <- dim(e)[1]
+    n <- dim(d)[1]
+    ks <- d$K
+
+    # extract clusters
+    dt <- list()
+    for (k in 1:n) {
+      ekey <- d$E[d$K == ks[k]]
+      dt[[k]] <- ldata(e = ekey, chs = input$exe.ch)[, 4]
+    }
+    ylim <- range(unlist(dt))
+
+    par(mfcol = c(2 * n, 1), mar = c(0, 0, 0, 0))
+    for (ki in 1:n) {
+      k <- ks[ki]
+      ekey <- d$E[d$K == k]
+      edat <- e$E[e$K == k]
+      plot(1:ne, rep(0.5, ne), pch = "|", col = "#E0E0E0", axes = F, ylim = c(0, 1.5), xaxs = "i")
+      points(edat, rep(0.5, length(edat)), col = ki, pch = "|")
+      points(ekey, 0.5, col = "black", pch = 12, cex = 2)
+      ylim1 <- range(dt[[ki]], na.rm = T)
+      xn <- length(dt[[ki]])
+      xin <- -xn * 0.02
+      plot(dt[[ki]], type = "l", lwd = 0.5, axes = F, ylab = "", xlab = "", ylim = ylim1, xlim = c(xin, xn), xaxs = "i")
+      ylim2 <- c((ylim1[1] - ylim[1]) / (ylim[2] - ylim[1]), (ylim1[2] - ylim[1]) / (ylim[2] - ylim[1]))
+      ylim3 <- ylim1[1] + (ylim2 * (ylim1[2] - ylim1[1]))
+      lines(c(xin, xin), ylim1, col = "black", lwd = 0.5) # full bar
+      lines(c(xin, xin), ylim3, col = "red", lwd = 2) # this range
+    }
+  })
+
+  output$exe.view1 <- renderPlot({
+    req(values$exe.e1, values$exe.c1, values$exe.mat, input$exe.ch)
+    par(mar = c(0, 0, 0, 0))
+    plot(values$exe.e1, type = "l", lwd = 0.5, axes = F, ylab = "", xlab = "", xaxs = "i", col = values$exe.c1, ylim = values$exe.ylim)
+  })
+
+  output$exe.view2 <- renderPlot({
+    req(values$exe.e2, values$exe.c2, values$exe.mat, input$exe.ch)
+    par(mar = c(0, 0, 0, 0))
+    plot(values$exe.e2, type = "l", lwd = 0.5, axes = F, ylab = "", xlab = "", xaxs = "i", col = values$exe.c2, ylim = values$exe.ylim)
+  })
+
+
+  observeEvent(input$exe_hover, {
+    #  cat( "input$exe_hover:" , input$exe_hover$x , input$exe_hover$y , "\n" )
+    ne <- values$opt[["ne"]]
+    e1 <- min(max(1, 1 + floor(input$exe_hover$x * ne)), ne)
+    e2 <- min(max(1, 1 + floor((1.0 - input$exe_hover$y) * ne)), ne)
+    values$exe.e1 <- ldata(e = e1, chs = input$exe.ch)[, 4]
+    values$exe.e2 <- ldata(e = e2, chs = input$exe.ch)[, 4]
+    values$exe.c1 <- values$exe.e$K[values$exe.e$E == e1]
+    values$exe.c2 <- values$exe.e$K[values$exe.e$E == e2]
+    values$exe.ylim <- range(c(values$exe.e1, values$exe.e2))
+  })
 
 
 
-# ------------------------------------------------------------
-# Simple stats  (mean, median, RMS, Hjorth, etc)
+  # ------------------------------------------------------------
+  # Simple stats  (mean, median, RMS, Hjorth, etc)
 
-output$cstats.table <- renderDataTable({
-  req(values$hasdata, input$channels)
+  output$cstats.table <- renderDataTable({
+    req(values$hasdata, input$channels)
 
-  cmd <- paste( "SIGSTATS epoch sig=", input$channels," & STATS epoch pct=F sig=" , input$channels , sep="" )
-  k <- leval( cmd )
+    cmd <- paste("SIGSTATS epoch sig=", input$channels, " & STATS epoch pct=F sig=", input$channels, sep = "")
+    k <- leval(cmd)
 
-  # extract epoch-level info 
-  ef <- merge( k$STATS$CH_E , k$SIGSTATS$CH_E , by=c("ID","E","CH") )
-  ef <- ef[ , c("CH","E","MEAN","MEDIAN","SKEW","KURT","MIN","MAX","H1","H2","H3") ]
-  names(ef) <- c("Channel","Epoch","Mean","Median","Skew","Kurtosis","Min","Max","H1","H2","H3")
-  ef$H1[ ef$H1 == 0 ] <- NA
-  ef$H1 <- log( ef$H1 )  
-  ef[,-(1:2)] <- signif( ef[,-(1:2)] , 3 ) 
-  ef <- ef[ order( ef$Channel, ef$Epoch ) , ]
-  values$estats <- ef
+    # extract epoch-level info
+    ef <- merge(k$STATS$CH_E, k$SIGSTATS$CH_E, by = c("ID", "E", "CH"))
+    ef <- ef[, c("CH", "E", "MEAN", "MEDIAN", "SKEW", "KURT", "MIN", "MAX", "H1", "H2", "H3")]
+    names(ef) <- c("Channel", "Epoch", "Mean", "Median", "Skew", "Kurtosis", "Min", "Max", "H1", "H2", "H3")
+    ef$H1[ef$H1 == 0] <- NA
+    ef$H1 <- log(ef$H1)
+    ef[, -(1:2)] <- signif(ef[, -(1:2)], 3)
+    ef <- ef[order(ef$Channel, ef$Epoch), ]
+    values$estats <- ef
 
-  # channel-level info 
-  df <- merge( k$STATS$CH , k$SIGSTATS$CH , by=c("ID","CH") )
-  df <- df[ , c("CH","MEDIAN.MEAN","MEDIAN.MEDIAN","MEDIAN.SKEW","MEDIAN.KURT","MIN","MAX","H1","H2","H3","NE1") ]
-  names(df) <- c("Channel","Mean","Median","Skew","Kurtosis","Min","Max","H1","H2","H3","NE")
-  df$H1[ df$H1 == 0 ] <- NA
-  df$H1 <- log( df$H1 )	
-  df[,-1] <- signif( df[,-1] , 3 ) 
-  DT::datatable(df,
-     options = list(
+    # channel-level info
+    df <- merge(k$STATS$CH, k$SIGSTATS$CH, by = c("ID", "CH"))
+    df <- df[, c("CH", "MEDIAN.MEAN", "MEDIAN.MEDIAN", "MEDIAN.SKEW", "MEDIAN.KURT", "MIN", "MAX", "H1", "H2", "H3", "NE1")]
+    names(df) <- c("Channel", "Mean", "Median", "Skew", "Kurtosis", "Min", "Max", "H1", "H2", "H3", "NE")
+    df$H1[df$H1 == 0] <- NA
+    df$H1 <- log(df$H1)
+    df[, -1] <- signif(df[, -1], 3)
+    DT::datatable(df,
+      options = list(
         scrollY = "300px",
         dom = "tB", buttons = list(list(extend = "copy", text = "Copy")),
         paging = F, info = F, searching = F,
@@ -3105,14 +3138,14 @@ output$cstats.table <- renderDataTable({
       ),
       rownames = FALSE
     )
-})
+  })
 
 
-output$estats.table <- renderDataTable({
-  req(values$hasdata, values$estats)
-  
-  DT::datatable( values$estats ,
-     options = list(
+  output$estats.table <- renderDataTable({
+    req(values$hasdata, values$estats)
+
+    DT::datatable(values$estats,
+      options = list(
         scrollY = "300px",
         dom = "tB", buttons = list(list(extend = "copy", text = "Copy")),
         paging = F, info = F, searching = F,
@@ -3120,398 +3153,416 @@ output$estats.table <- renderDataTable({
       ),
       rownames = FALSE
     )
-    
-})
+  })
 
 
-# ------------------------------------------------------------
-# MTM spectrogram explorer
+  # ------------------------------------------------------------
+  # MTM spectrogram explorer
 
-observeEvent( input$do.mtm , {
- req( values$hasedf , input$mtm.ch , values$opt[[ "maskset" ]] == F )
- req( values$elen == 30 )
- 
- k30 <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=30 tw=15 epoch" , sep="" ) )
+  observeEvent(input$do.mtm, {
+    req(values$hasedf, input$mtm.ch, values$opt[["maskset"]] == F)
+    req(values$elen == 30)
 
- # get times of segments (START STOP DISC)
- k30$MTM$CH_SEG$ID <- k30$MTM$CH_SEG$CH <- NULL
+    k30 <- leval(paste("MTM sig=", input$mtm.ch, " segment-sec=30 tw=15 epoch", sep = ""))
 
- # exclude any segments that span a discontinuity
- k30$MTM$CH_SEG <- k30$MTM$CH_SEG[ k30$MTM$CH_SEG$DISC == 0 , ]
+    # get times of segments (START STOP DISC)
+    k30$MTM$CH_SEG$ID <- k30$MTM$CH_SEG$CH <- NULL
 
- k30$MTM$CH_SEG$DISC <- NULL
+    # exclude any segments that span a discontinuity
+    k30$MTM$CH_SEG <- k30$MTM$CH_SEG[k30$MTM$CH_SEG$DISC == 0, ]
 
- # save freqs
- values$mtm[[ "f30" ]] <- k30$MTM$CH_F
+    k30$MTM$CH_SEG$DISC <- NULL
 
- # make nonspare matrices (for use w/ lheatmap useRaster)
- mx30 <- max( k30$MTM$CH_SEG$SEG )
+    # save freqs
+    values$mtm[["f30"]] <- k30$MTM$CH_F
 
- f30 <- unique( k30$MTM$CH_F_SEG$F )
- nf30 <- length( unique( k30$MTM$CH_SEG$SEG ) )
- k30$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f30 ) , each = nf30 )
+    # make nonspare matrices (for use w/ lheatmap useRaster)
+    mx30 <- max(k30$MTM$CH_SEG$SEG)
 
- m30 <- matrix( NA , nrow = length(f30) , ncol = mx30 )
- m30[ cbind( k30$MTM$CH_F_SEG$FIDX , k30$MTM$CH_F_SEG$SEG ) ] <- k30$MTM$CH_F_SEG$MTM
+    f30 <- unique(k30$MTM$CH_F_SEG$F)
+    nf30 <- length(unique(k30$MTM$CH_SEG$SEG))
+    k30$MTM$CH_F_SEG$FIDX <- rep(1:length(f30), each = nf30)
 
- values$mtm[[ "d30" ]] <- t( m30 )
+    m30 <- matrix(NA, nrow = length(f30), ncol = mx30)
+    m30[cbind(k30$MTM$CH_F_SEG$FIDX, k30$MTM$CH_F_SEG$SEG)] <- k30$MTM$CH_F_SEG$MTM
 
- # save times
- values$mtm[[ "t30" ]] <- k30$MTM$CH_SEG
+    values$mtm[["d30"]] <- t(m30)
 
-})
-
-
-do.mid.mtm <- function()
-{
- start <- values$mtm1[3]
- stop  <- values$mtm1[4]
- k5  <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=6   segment-inc=0.25 tw=3 epoch start=" , start , " stop=" , stop  , sep="" ) )
- k5$MTM$CH_SEG$ID  <- k5$MTM$CH_SEG$CH <- NULL
- k5$MTM$CH_SEG  <- k5$MTM$CH_SEG[ k5$MTM$CH_SEG$DISC == 0 , ]
- k5$MTM$CH_SEG$DISC <- NULL
- values$mtm[[ "t5" ]]  <- k5$MTM$CH_SEG
- values$mtm[[ "f5" ]]  <- k5$MTM$CH_F
- mx5  <- max( k5$MTM$CH_SEG$SEG )
- f5  <- unique( k5$MTM$CH_F_SEG$F )
- nf5 <- length( unique( k5$MTM$CH_SEG$SEG ) )
- k5$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f5 ) , each = nf5 )
- m5 <- matrix( NA , nrow = length(f5) , ncol = mx5 )
- m5[ cbind( k5$MTM$CH_F_SEG$FIDX , k5$MTM$CH_F_SEG$SEG ) ] <- k5$MTM$CH_F_SEG$MTM
- values$mtm[[ "d5" ]] <- t( m5 )
-}
-
-do.lwr.mtm <- function()
-{
- start <- values$mtm2[3]
- stop  <- values$mtm2[4]
- k1  <- leval( paste( "MTM sig=" , input$mtm.ch , " segment-sec=2.5 segment-inc=0.05 tw=5 epoch start=" , start , " stop=" , stop , sep="" ) )
- k1$MTM$CH_SEG$ID  <- k1$MTM$CH_SEG$CH <- NULL
- k1$MTM$CH_SEG  <- k1$MTM$CH_SEG[ k1$MTM$CH_SEG$DISC == 0 , ]
- k1$MTM$CH_SEG$DISC <- NULL
- values$mtm[[ "t1" ]]  <- k1$MTM$CH_SEG
- values$mtm[[ "f1" ]]  <- k1$MTM$CH_F
- mx1  <- max( k1$MTM$CH_SEG$SEG )
- f1  <- unique( k1$MTM$CH_F_SEG$F )
- nf1 <- length( unique( k1$MTM$CH_SEG$SEG ) )
- k1$MTM$CH_F_SEG$FIDX <- rep( 1 : length( f1 ) , each = nf1 )
- m1 <- matrix( NA , nrow = length(f1) , ncol = mx1 )
- m1[ cbind( k1$MTM$CH_F_SEG$FIDX , k1$MTM$CH_F_SEG$SEG ) ] <- k1$MTM$CH_F_SEG$MTM
- values$mtm[[ "d1" ]] <- t( m1 )
-}
+    # save times
+    values$mtm[["t30"]] <- k30$MTM$CH_SEG
+  })
 
 
-output$mtm.view1 <- renderPlot({
-  req( values$mtm )
-  req( input$mtm.flwr <  input$mtm.fupr )
-  req( values$elen == 30 )
-  frq <- values$mtm[[ "f30" ]]$F  
-  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
-  req( length(frq)>1 )
-  df <- values$mtm[[ "d30" ]]
-  df <- df[ , frq ] 
-  par(mar = c(0, 0, 0, 0))
-  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
-  else image( df , col = lturbo(100) , useRaster=T) 
-})
-
-
-output$mtm.view2 <- renderPlot({
-  req( values$mtm )
-  req( input$mtm.flwr <  input$mtm.fupr )
-  req( values$elen == 30 )
-  frq <- values$mtm[[ "f5" ]]$F
-  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
-  req( length(frq)>1 )
-  df <- values$mtm[[ "d5" ]]
-  df <- df[ , frq ]
-  # slice segments
-  if ( ! is.null( values$mtm1 ) )
-  {
-    tf <- values$mtm[[ "t5" ]]   # SECs -> SEGs from d5
-    segs <- tf$SEG[ tf$START >= values$mtm1[3] & tf$STOP <= values$mtm1[4] ]
-    df <- df[ segs , ]
+  do.mid.mtm <- function() {
+    start <- values$mtm1[3]
+    stop <- values$mtm1[4]
+    k5 <- leval(paste("MTM sig=", input$mtm.ch, " segment-sec=6   segment-inc=0.25 tw=3 epoch start=", start, " stop=", stop, sep = ""))
+    k5$MTM$CH_SEG$ID <- k5$MTM$CH_SEG$CH <- NULL
+    k5$MTM$CH_SEG <- k5$MTM$CH_SEG[k5$MTM$CH_SEG$DISC == 0, ]
+    k5$MTM$CH_SEG$DISC <- NULL
+    values$mtm[["t5"]] <- k5$MTM$CH_SEG
+    values$mtm[["f5"]] <- k5$MTM$CH_F
+    mx5 <- max(k5$MTM$CH_SEG$SEG)
+    f5 <- unique(k5$MTM$CH_F_SEG$F)
+    nf5 <- length(unique(k5$MTM$CH_SEG$SEG))
+    k5$MTM$CH_F_SEG$FIDX <- rep(1:length(f5), each = nf5)
+    m5 <- matrix(NA, nrow = length(f5), ncol = mx5)
+    m5[cbind(k5$MTM$CH_F_SEG$FIDX, k5$MTM$CH_F_SEG$SEG)] <- k5$MTM$CH_F_SEG$MTM
+    values$mtm[["d5"]] <- t(m5)
   }
-  par(mar = c(0,0,0,0))
-  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
-  else image( df , col = lturbo(100) , useRaster=T) 
 
-})
-
-output$mtm.view3 <- renderPlot({
-  req( values$mtm )
-  req( input$mtm.flwr <  input$mtm.fupr )
-  frq <- values$mtm[[ "f1" ]]$F
-  frq <- which( frq >= input$mtm.flwr & frq <= input$mtm.fupr )
-  req( length(frq)>1 )
-  df <- values$mtm[[ "d1" ]]
-  df <- df[ , frq ]
-
-  # slice segments
-  if ( ! is.null( values$mtm2 ) )
-  {
-    # parent spans values$mtm1[3] to values$mtm1[4] (as seconds, fixed to top)
-    # this range is values$mtm2[1] to values$mtm2[2] (as prop of mid plot)
-    span <- values$mtm1[4] - values$mtm1[3]
-    start <- values$mtm1[3] + span * values$mtm2[1]
-    stop <- values$mtm1[3] + span * values$mtm2[2]
-    tf <- values$mtm[[ "t1" ]] # SECs -> SEGs from mid slice
-    tf <- tf[ tf$START >= start & tf$STOP <= stop , ]
-    values$mtm3 <- range( c( tf$START , tf$STOP ) ) 
-    df <- df[ tf$SEG , ]
+  do.lwr.mtm <- function() {
+    start <- values$mtm2[3]
+    stop <- values$mtm2[4]
+    k1 <- leval(paste("MTM sig=", input$mtm.ch, " segment-sec=2.5 segment-inc=0.05 tw=5 epoch start=", start, " stop=", stop, sep = ""))
+    k1$MTM$CH_SEG$ID <- k1$MTM$CH_SEG$CH <- NULL
+    k1$MTM$CH_SEG <- k1$MTM$CH_SEG[k1$MTM$CH_SEG$DISC == 0, ]
+    k1$MTM$CH_SEG$DISC <- NULL
+    values$mtm[["t1"]] <- k1$MTM$CH_SEG
+    values$mtm[["f1"]] <- k1$MTM$CH_F
+    mx1 <- max(k1$MTM$CH_SEG$SEG)
+    f1 <- unique(k1$MTM$CH_F_SEG$F)
+    nf1 <- length(unique(k1$MTM$CH_SEG$SEG))
+    k1$MTM$CH_F_SEG$FIDX <- rep(1:length(f1), each = nf1)
+    m1 <- matrix(NA, nrow = length(f1), ncol = mx1)
+    m1[cbind(k1$MTM$CH_F_SEG$FIDX, k1$MTM$CH_F_SEG$SEG)] <- k1$MTM$CH_F_SEG$MTM
+    values$mtm[["d1"]] <- t(m1)
   }
-  # normalize
-  #for (j in 1:(dim(df)[2])) df[,j] <- scale(df[,j], center=T, scale=F)
-  par(mar = c(0, 0, 0, 0))
-  if ( input$mtm.winsor > 0 ) image( lwin( df , input$mtm.winsor ) , col = lturbo(100) , useRaster=T)
-  else image( df , col = lturbo(100) , useRaster=T) 
 
-})
+
+  output$mtm.view1 <- renderPlot({
+    req(values$mtm)
+    req(input$mtm.flwr < input$mtm.fupr)
+    req(values$elen == 30)
+    frq <- values$mtm[["f30"]]$F
+    frq <- which(frq >= input$mtm.flwr & frq <= input$mtm.fupr)
+    req(length(frq) > 1)
+    df <- values$mtm[["d30"]]
+    df <- df[, frq]
+    par(mar = c(0, 0, 0, 0))
+    if (input$mtm.winsor > 0) {
+      image(lwin(df, input$mtm.winsor), col = lturbo(100), useRaster = T)
+    } else {
+      image(df, col = lturbo(100), useRaster = T)
+    }
+  })
+
+
+  output$mtm.view2 <- renderPlot({
+    req(values$mtm)
+    req(input$mtm.flwr < input$mtm.fupr)
+    req(values$elen == 30)
+    frq <- values$mtm[["f5"]]$F
+    frq <- which(frq >= input$mtm.flwr & frq <= input$mtm.fupr)
+    req(length(frq) > 1)
+    df <- values$mtm[["d5"]]
+    df <- df[, frq]
+    # slice segments
+    if (!is.null(values$mtm1)) {
+      tf <- values$mtm[["t5"]] # SECs -> SEGs from d5
+      segs <- tf$SEG[tf$START >= values$mtm1[3] & tf$STOP <= values$mtm1[4]]
+      df <- df[segs, ]
+    }
+    par(mar = c(0, 0, 0, 0))
+    if (input$mtm.winsor > 0) {
+      image(lwin(df, input$mtm.winsor), col = lturbo(100), useRaster = T)
+    } else {
+      image(df, col = lturbo(100), useRaster = T)
+    }
+  })
+
+  output$mtm.view3 <- renderPlot({
+    req(values$mtm)
+    req(input$mtm.flwr < input$mtm.fupr)
+    frq <- values$mtm[["f1"]]$F
+    frq <- which(frq >= input$mtm.flwr & frq <= input$mtm.fupr)
+    req(length(frq) > 1)
+    df <- values$mtm[["d1"]]
+    df <- df[, frq]
+
+    # slice segments
+    if (!is.null(values$mtm2)) {
+      # parent spans values$mtm1[3] to values$mtm1[4] (as seconds, fixed to top)
+      # this range is values$mtm2[1] to values$mtm2[2] (as prop of mid plot)
+      span <- values$mtm1[4] - values$mtm1[3]
+      start <- values$mtm1[3] + span * values$mtm2[1]
+      stop <- values$mtm1[3] + span * values$mtm2[2]
+      tf <- values$mtm[["t1"]] # SECs -> SEGs from mid slice
+      tf <- tf[tf$START >= start & tf$STOP <= stop, ]
+      values$mtm3 <- range(c(tf$START, tf$STOP))
+      df <- df[tf$SEG, ]
+    }
+    # normalize
+    # for (j in 1:(dim(df)[2])) df[,j] <- scale(df[,j], center=T, scale=F)
+    par(mar = c(0, 0, 0, 0))
+    if (input$mtm.winsor > 0) {
+      image(lwin(df, input$mtm.winsor), col = lturbo(100), useRaster = T)
+    } else {
+      image(df, col = lturbo(100), useRaster = T)
+    }
+  })
 
 
   observeEvent(input$mtm1_click, {
     values$mtm1 <- input$mtm1_click$x
     # top in seconds: ( always 0... in 30-seconds)
-    n30 <- dim( values$mtm[[ "d30" ]] )[1]
-    #mid point
-    tot <- ( 30 * n30 )
+    n30 <- dim(values$mtm[["d30"]])[1]
+    # mid point
+    tot <- (30 * n30)
     t <- tot * input$mtm1_click$x
     # 5 mins
-    if ( t < 150 ) t <- c( 0 , 300 )
-    else if ( t > tot - 150 ) t <- c( tot - 150 , tot )
-    else t <- c( t - 150 , t + 150 )
+    if (t < 150) {
+      t <- c(0, 300)
+    } else if (t > tot - 150) {
+      t <- c(tot - 150, tot)
+    } else {
+      t <- c(t - 150, t + 150)
+    }
     # prop, then secs
-    values$mtm1 <- c( t / tot , t ) 
+    values$mtm1 <- c(t / tot, t)
 
     # calculate mid + lower plots
     do.mid.mtm()
 
     # reset lower plot at start of this window
-    values$mtm2 <- c(0,10/300,values$mtm1[3],values$mtm1[3]+10) 	 
+    values$mtm2 <- c(0, 10 / 300, values$mtm1[3], values$mtm1[3] + 10)
     do.lwr.mtm()
-    })
+  })
 
 
   observeEvent(input$mtm2_click, {
     values$mtm2 <- input$mtm2_click$x
     # mid span:
-    m <- values$mtm1 
-    tot <- m[4] - m[3]  #should always be 5 mins - i.e. fixed
+    m <- values$mtm1
+    tot <- m[4] - m[3] # should always be 5 mins - i.e. fixed
     t <- m[3] + tot * input$mtm2_click$x
     # 10 seconds
-    if ( t < m[3] + 5 ) t <- c( m[3] , m[3] + 10 )
-    else if ( t > m[4] - 5 ) t <- c( m[4] - 5 , m[4] )
-    else t <- c( t - 5 , t + 5 )
+    if (t < m[3] + 5) {
+      t <- c(m[3], m[3] + 10)
+    } else if (t > m[4] - 5) {
+      t <- c(m[4] - 5, m[4])
+    } else {
+      t <- c(t - 5, t + 5)
+    }
     # props, then secs
-    values$mtm2 <- c( (t-m[3]) / tot , t )  
-    do.lwr.mtm()    
+    values$mtm2 <- c((t - m[3]) / tot, t)
+    do.lwr.mtm()
   })
 
- output$mtm.tr12 <- renderPlot({
-   req( values$mtm1 )
-   par(mar = c(0, 0, 0, 0))
-   plot(c(0,1),c(0,1),type="n",axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
-   polygon( c(0,values$mtm1[1],values$mtm1[1],values$mtm1[2],values$mtm1[2],1), c(0,0.66,1,1,0.66,0), col="lightgray" , border="black" )
- })
+  output$mtm.tr12 <- renderPlot({
+    req(values$mtm1)
+    par(mar = c(0, 0, 0, 0))
+    plot(c(0, 1), c(0, 1), type = "n", axes = F, xlab = "", ylab = "", main = "", xaxs = "i", yaxs = "i")
+    polygon(c(0, values$mtm1[1], values$mtm1[1], values$mtm1[2], values$mtm1[2], 1), c(0, 0.66, 1, 1, 0.66, 0), col = "lightgray", border = "black")
+  })
 
-output$mtm.tr23 <- renderPlot({
-  req( values$mtm2 )
-  par(mar = c(0, 0, 0, 0))
-  plot(c(0,1),c(0,1),type="n",axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
-  polygon( c(0,values$mtm2[1],values$mtm2[1],values$mtm2[2],values$mtm2[2],1), c(0,0.66,1,1,0.66,0), col="lightgray" , border="black" )
-})
+  output$mtm.tr23 <- renderPlot({
+    req(values$mtm2)
+    par(mar = c(0, 0, 0, 0))
+    plot(c(0, 1), c(0, 1), type = "n", axes = F, xlab = "", ylab = "", main = "", xaxs = "i", yaxs = "i")
+    polygon(c(0, values$mtm2[1], values$mtm2[1], values$mtm2[2], values$mtm2[2], 1), c(0, 0.66, 1, 1, 0.66, 0), col = "lightgray", border = "black")
+  })
 
-output$mtm.view4 <- renderPlot({
-  req( values$mtm2 , values$mtm3 )
-  k <- ldata.intervals( list( values$mtm3 ) , input$mtm.ch ) 
-  par(mar = c(0, 0, 0, 0))  
-  plot(k$SEC, k[,3] , type="l" , lwd=0.8 , axes=F,xlab="",ylab="",main="", xaxs="i", yaxs="i")
-  abline( h = 0 , lty=2 , col="lightgray")
-})
+  output$mtm.view4 <- renderPlot({
+    req(values$mtm2, values$mtm3)
+    k <- ldata.intervals(list(values$mtm3), input$mtm.ch)
+    par(mar = c(0, 0, 0, 0))
+    plot(k$SEC, k[, 3], type = "l", lwd = 0.8, axes = F, xlab = "", ylab = "", main = "", xaxs = "i", yaxs = "i")
+    abline(h = 0, lty = 2, col = "lightgray")
+  })
 
 
-# ------------------------------------------------------------
-# Signal summary (Hjorth plot) viewer
+  # ------------------------------------------------------------
+  # Signal summary (Hjorth plot) viewer
 
-output$sigsumm.view1 <- renderPlot({
- req( values$sigsumm )
+  output$sigsumm.view1 <- renderPlot({
+    req(values$sigsumm)
 
- isolate({ 
-  chs <- rev( input$channels )
-  nsig <- length(chs)
-  nsec <- values$elen * values$opt[["ne"]]
-  winsor <- input$sigsumm.winsor
+    isolate({
+      chs <- rev(input$channels)
+      nsig <- length(chs)
+      nsec <- values$elen * values$opt[["ne"]]
+      winsor <- input$sigsumm.winsor
 
-  # original epochs
-  ttable <- values$opt[["init.epochs.aligned"]][, c("E","START") ]
+      # original epochs
+      ttable <- values$opt[["init.epochs.aligned"]][, c("E", "START")]
 
-  par(mar=c(0,0,0,0))
-  plot( c(0,1) , c(0,1) , xlim=c(0,nsec) , ylim=c(0,nsig) , type="n" , xaxs="i" , yaxs="i" , xlab = "", ylab = "" , main = "" )
-  pal <- lturbo(100)
- 
-  ch.idx <- 1
-  for (ch in chs) {
-    df <- values$sigsumm[[ ch ]]
-    df <- merge( df , ttable , by="E" )
-    if ( winsor > 0 ) {
-      df$H1 <- lwin( df$H1 , winsor )
-      df$H2 <- lwin( df$H2 , winsor )
-      df$H3 <- lwin( df$H3 , winsor )
+      par(mar = c(0, 0, 0, 0))
+      plot(c(0, 1), c(0, 1), xlim = c(0, nsec), ylim = c(0, nsig), type = "n", xaxs = "i", yaxs = "i", xlab = "", ylab = "", main = "")
+      pal <- lturbo(100)
+
+      ch.idx <- 1
+      for (ch in chs) {
+        df <- values$sigsumm[[ch]]
+        df <- merge(df, ttable, by = "E")
+        if (winsor > 0) {
+          df$H1 <- lwin(df$H1, winsor)
+          df$H2 <- lwin(df$H2, winsor)
+          df$H3 <- lwin(df$H3, winsor)
+        }
+        mx1 <- range(df$H1, na.rm = T)
+        mx2 <- range(df$H2, na.rm = T)
+        mx3 <- range(df$H3, na.rm = T)
+        r1 <- mx1[2] - mx1[1]
+        r2 <- mx2[2] - mx2[1]
+        r3 <- mx3[2] - mx3[1]
+        if (r1 <= 1e-8) r1 <- 1
+        if (r2 <= 1e-8) r2 <- 1
+        if (r3 <= 1e-8) r3 <- 1
+        y1 <- (df$H1 - mx1[1]) / r1
+        y2 <- (df$H2 - mx2[1]) / r2
+        y3 <- (df$H3 - mx3[1]) / r3
+        y2 <- round(y2 * 100)
+        y3 <- round(y3 * 100)
+        y2[y2 < 1] <- 1
+        y3[y3 < 1] <- 1
+        midy <- ch.idx - 0.4
+        rect(df$START, midy, df$START + values$elen, midy + 0.4 * y1, col = pal[y2], border = NA)
+        rect(df$START, midy - 0.4 * y1, df$START + values$elen, midy, col = pal[y3], border = NA)
+        text(90, midy - 0.5, ch, cex = 1, pos = 4)
+        ch.idx <- ch.idx + 1
+      }
+    }) # end isolate
+  })
+
+
+  output$sigsumm.view2 <- renderPlot({
+    req(values$hasedf)
+    if (is.null(values$sigsumm2)) {
+      par(mar = c(0, 0, 0, 0))
+      frame()
+    } else {
+      req(length(values$sigsumm2) != 0)
+      par(mar = c(0, 0, 0, 0))
+      plot(values$sigsumm2, type = "l", xlab = "", ylab = "", xaxs = "i", yaxs = "i", main = "", lwd = 1)
+      rng <- signif(range(values$sigsumm2), 2)
+      lbl <- paste(values$sigsumm2.label, ":", rng[1], "..", rng[2])
+      legend("bottomleft", lbl, box.col = "lightgray", bg = "white")
     }
-    mx1 <- range( df$H1 , na.rm=T)
-    mx2 <- range( df$H2 , na.rm=T)
-    mx3 <- range( df$H3 , na.rm=T)
-    r1 <-  mx1[2] - mx1[1]
-    r2 <-  mx2[2] - mx2[1]
-    r3 <-  mx3[2] - mx3[1]
-    if ( r1 <= 1e-8 ) r1 <- 1
-    if ( r2 <= 1e-8 ) r2 <- 1
-    if ( r3 <= 1e-8 ) r3 <- 1
-    y1 <- ( df$H1 - mx1[1] ) / r1
-    y2 <- ( df$H2 - mx2[1] ) / r2
-    y3 <- ( df$H3 - mx3[1] ) / r3
-    y2 <- round( y2 * 100 )
-    y3 <- round( y3 * 100 )
-    y2[ y2 < 1 ] <- 1 ; y3[ y3 < 1 ] <- 1 
-    midy <- ch.idx - 0.4
-    rect( df$START , midy        , df$START + values$elen , midy+0.4*y1 , col = pal[y2] , border=NA)
-    rect( df$START , midy-0.4*y1 , df$START + values$elen , midy        , col = pal[y3] , border=NA)
-    text( 90 , midy - 0.5 , ch , cex=1 , pos = 4 )
-    ch.idx <- ch.idx + 1    
-  }
- }) # end isolate
-})
+  })
 
+  observeEvent(input$do.sigsumm, {
+    req(values$hasedf)
+    req(input$channels)
+    req(length(input$channels) != 0)
 
-output$sigsumm.view2 <- renderPlot({
- req( values$hasedf )
- if ( is.null( values$sigsumm2 ) ) {
-  par(mar=c(0,0,0,0)); frame()
- } else {
-  req( length( values$sigsumm2 ) != 0 )
-  par(mar=c(0,0,0,0))
-  plot( values$sigsumm2  , type="l" , xlab="", ylab="" , xaxs="i", yaxs="i" , main="" , lwd=1 )
-  rng <- signif( range( values$sigsumm2  ) , 2 ) 
-  lbl <- paste( values$sigsumm2.label , ":", rng[1] , ".." , rng[2] )
-  legend( "bottomleft", lbl , box.col="lightgray",bg="white" )
- }
-})
-
-observeEvent( input$do.sigsumm , {
- req( values$hasedf )
- req( input$channels )
- req( length( input$channels ) != 0 )
-
- values$sigsumm <- NULL
- sigs <- paste( input$channels , collapse = "," )
- k <- leval( paste( "SIGSTATS epoch mean sig=" , sigs , sep="" ) )
- chs <- unique( k$SIGSTATS$CH$CH )
- ns <- length(chs)
- k$SIGSTATS$CH_E$H1[ k$SIGSTATS$CH_E$H1 == 0 ] <- NA
- k$SIGSTATS$CH_E$H1 <- log( k$SIGSTATS$CH_E$H1 ) 
- for (ch in chs)
-  values$sigsumm[[ ch ]] <- k$SIGSTATS$CH_E[ k$SIGSTATS$CH_E$CH == ch , c("E","H1","H2","H3" ) ]
-
-} )
-
-observeEvent(input$sigsumm_hover, {
-  chs <- rev( input$channels ) 
-  ns <- length( chs )
-  # pull one epoch
-  t <- list( c( input$sigsumm_hover$x , input$sigsumm_hover$x+values$elen) ) 
-  ch <- chs[ max(1,min( ns, floor( input$sigsumm_hover$y )+1 ) )  ]
-  values$sigsumm2 <- ldata.intervals( i = t , chs = ch )[,3] 
-  values$sigsumm2.label <- ch
-  values$sigsumm2.interval <- t
-})
-
-
-# Moonbeam/NSRR
-
-observeEvent(input$moonbeam, {
-  showModal(modalDialog(
-     title = "Moonbeam",
-     tabsetPanel( id = "moonbeam.tabs", 
-      tabPanel( "NSRR" , value = "nsrr" , 
-         fluidRow(
-          column( 4, passwordInput("nsrr.token", "NSRR token (http://sleepdata.org/token)" , value = values$mb.token ) ),
-	  column( 5, selectInput("nsrr.cohorts",label="Cohorts",choices=setNames( as.list( values$mb.cohorts[,1] ) , values$mb.cohorts[,2] ) ,multiple = F,selectize = T, selected=input$nsrr.cohorts , width="100%") ),
-          column( 3, selectizeInput("nsrr.indivs",label="Individuals",choices= unique(values$mb.indivs[,2]) ,multiple = F , options = list( maxOptions = 10000 ) ) ) ),
-         fluidRow( column( 2 ,  actionButton("nsrr.login", "Authenticate") ) , column( 7 , textOutput("nsrr.accnt") ) , column(1,actionButton("nsrr.upload", "Import")  ) ) 
-	 ),
-       tabPanel( "User URLs" , value = "user" , 
-         textInput("edf.url", "EDF URL",width='100%' ),
-         textInput("annot.url", "Annotation URL",width='100%'),
-         actionButton("user.upload", "Import") ),
-	),         
-   footer = tagList( modalButton("Cancel") ) ,
-   size = "l" )
-     ) } )
-
-
-observeEvent( input$nsrr.login , {
- req( input$nsrr.token ) 
- # save token 
- values$mb.token = input$nsrr.token
- values$mb.nsrr = T
- okay <- T
- # get list of cohorts available for this person
-  try( {
-   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t" , input$nsrr.token , sep="=" ) 
-   tmp <- tempfile()
-   curl_download( url , tmp )
-   
-    if ( file.exists( tmp ) ) {
-      retval <- try( df <- read.table( tmp , header=F , sep="\t" , quote = "" ) )
-      if ( class( retval) != "try-error" ) {
-        dnames <- setNames( as.list( df[,1] ) , df[,2] ) 
-       updateSelectInput( session, "nsrr.cohorts", choices = dnames , label = paste( length(dnames),"cohorts") , selected = df[1,1] )
-       # save cohort list
-       values$mb.cohorts <- df
-      } else { okay = F }
-    } else { okay = F } 
-   })
- if ( ! okay ) {
-  updateSelectInput( session, "nsrr.cohorts", choices = list() , label = "Cohorts" , selected = 0 )
-  updateSelectizeInput( session, "nsrr.indivs", choices = list() , label = "Individuals" , selected = 0 , server = TRUE )
-  updateSelectizeInput( session, "moonbeam.indivs", choices = list() , label = "Individuals" , selected = 0 , server = TRUE )
- }
- })
-
-observeEvent( input$nsrr.cohorts , {
- req( input$nsrr.cohorts )
- cat( "beaming:" , input$nsrr.cohorts , "\n" )
-   try( {
-   url <- paste( "https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=" , input$nsrr.token , "&c=" , input$nsrr.cohorts , sep="" )
-   tmp <- tempfile()
-   curl_download( url , tmp )
-    if ( file.exists( tmp ) ) {
-      df <- read.table( tmp , header=F , sep="\t" )
-      ids <- unique( df[,2] ) 
-      updateSelectizeInput( session, "nsrr.indivs", choices = ids , label = paste( length(ids),"records") , selected = which( ids == input$nsrr.indivs ) , server = TRUE )
-      updateSelectizeInput( session, "moonbeam.indivs", choices = ids , label = paste( length(ids),"records") , selected = which( ids == input$nsrr.indivs ), server = TRUE )
-      # save MB all indivs & all files
-      values$mb.indivs = df      
+    values$sigsumm <- NULL
+    sigs <- paste(input$channels, collapse = ",")
+    k <- leval(paste("SIGSTATS epoch mean sig=", sigs, sep = ""))
+    chs <- unique(k$SIGSTATS$CH$CH)
+    ns <- length(chs)
+    k$SIGSTATS$CH_E$H1[k$SIGSTATS$CH_E$H1 == 0] <- NA
+    k$SIGSTATS$CH_E$H1 <- log(k$SIGSTATS$CH_E$H1)
+    for (ch in chs) {
+      values$sigsumm[[ch]] <- k$SIGSTATS$CH_E[k$SIGSTATS$CH_E$CH == ch, c("E", "H1", "H2", "H3")]
     }
-   })
-})
+  })
+
+  observeEvent(input$sigsumm_hover, {
+    chs <- rev(input$channels)
+    ns <- length(chs)
+    # pull one epoch
+    t <- list(c(input$sigsumm_hover$x, input$sigsumm_hover$x + values$elen))
+    ch <- chs[max(1, min(ns, floor(input$sigsumm_hover$y) + 1))]
+    values$sigsumm2 <- ldata.intervals(i = t, chs = ch)[, 3]
+    values$sigsumm2.label <- ch
+    values$sigsumm2.interval <- t
+  })
 
 
-observeEvent( input$moonbeam.indivs , {
- values$nsrr.indivs = input$moonbeam.indivs
-})
+  # Moonbeam/NSRR
 
-observeEvent( input$nsrr.upload , {
- values$nsrr.indivs = input$nsrr.indivs
- updateSelectizeInput( session, "moonbeam.indivs", selected = values$nsrr.indivs , label = paste( "Cohort:", input$nsrr.cohorts ) ) 
-})
+  observeEvent(input$moonbeam, {
+    showModal(modalDialog(
+      title = "Moonbeam",
+      tabsetPanel(
+        id = "moonbeam.tabs",
+        tabPanel("NSRR",
+          value = "nsrr",
+          fluidRow(
+            column(4, passwordInput("nsrr.token", "NSRR token (http://sleepdata.org/token)", value = values$mb.token)),
+            column(5, selectInput("nsrr.cohorts", label = "Cohorts", choices = setNames(as.list(values$mb.cohorts[, 1]), values$mb.cohorts[, 2]), multiple = F, selectize = T, selected = input$nsrr.cohorts, width = "100%")),
+            column(3, selectizeInput("nsrr.indivs", label = "Individuals", choices = unique(values$mb.indivs[, 2]), multiple = F, options = list(maxOptions = 10000)))
+          ),
+          fluidRow(column(2, actionButton("nsrr.login", "Authenticate")), column(7, textOutput("nsrr.accnt")), column(1, actionButton("nsrr.upload", "Import")))
+        ),
+        tabPanel("User URLs",
+          value = "user",
+          textInput("edf.url", "EDF URL", width = "100%"),
+          textInput("annot.url", "Annotation URL", width = "100%"),
+          actionButton("user.upload", "Import")
+        ),
+      ),
+      footer = tagList(modalButton("Cancel")),
+      size = "l"
+    ))
+  })
 
 
+  observeEvent(input$nsrr.login, {
+    req(input$nsrr.token)
+    # save token
+    values$mb.token <- input$nsrr.token
+    values$mb.nsrr <- T
+    okay <- T
+    # get list of cohorts available for this person
+    try({
+      url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t", input$nsrr.token, sep = "=")
+      tmp <- tempfile()
+      curl_download(url, tmp)
+
+      if (file.exists(tmp)) {
+        retval <- try(df <- read.table(tmp, header = F, sep = "\t", quote = ""))
+        if (class(retval) != "try-error") {
+          dnames <- setNames(as.list(df[, 1]), df[, 2])
+          updateSelectInput(session, "nsrr.cohorts", choices = dnames, label = paste(length(dnames), "cohorts"), selected = df[1, 1])
+          # save cohort list
+          values$mb.cohorts <- df
+        } else {
+          okay <- F
+        }
+      } else {
+        okay <- F
+      }
+    })
+    if (!okay) {
+      updateSelectInput(session, "nsrr.cohorts", choices = list(), label = "Cohorts", selected = 0)
+      updateSelectizeInput(session, "nsrr.indivs", choices = list(), label = "Individuals", selected = 0, server = TRUE)
+      updateSelectizeInput(session, "moonbeam.indivs", choices = list(), label = "Individuals", selected = 0, server = TRUE)
+    }
+  })
+
+  observeEvent(input$nsrr.cohorts, {
+    req(input$nsrr.cohorts)
+    cat("beaming:", input$nsrr.cohorts, "\n")
+    try({
+      url <- paste("https://zzz.bwh.harvard.edu/cgi-bin/moonbeam.cgi?t=", input$nsrr.token, "&c=", input$nsrr.cohorts, sep = "")
+      tmp <- tempfile()
+      curl_download(url, tmp)
+      if (file.exists(tmp)) {
+        df <- read.table(tmp, header = F, sep = "\t")
+        ids <- unique(df[, 2])
+        updateSelectizeInput(session, "nsrr.indivs", choices = ids, label = paste(length(ids), "records"), selected = which(ids == input$nsrr.indivs), server = TRUE)
+        updateSelectizeInput(session, "moonbeam.indivs", choices = ids, label = paste(length(ids), "records"), selected = which(ids == input$nsrr.indivs), server = TRUE)
+        # save MB all indivs & all files
+        values$mb.indivs <- df
+      }
+    })
+  })
 
 
+  observeEvent(input$moonbeam.indivs, {
+    values$nsrr.indivs <- input$moonbeam.indivs
+  })
+
+  observeEvent(input$nsrr.upload, {
+    values$nsrr.indivs <- input$nsrr.indivs
+    updateSelectizeInput(session, "moonbeam.indivs", selected = values$nsrr.indivs, label = paste("Cohort:", input$nsrr.cohorts))
+  })
 
 
-# END
+  # Disable download_pops button on page loading
+  shinyjs::disable("download_pops")
+
+  # END
 }
-
-

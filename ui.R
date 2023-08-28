@@ -20,7 +20,7 @@
 #
 #  --------------------------------------------------------------------
 
-# source("ui.R"); source("server.R"); shinyApp( ui, server ) 
+# source("ui.R"); source("server.R"); shinyApp( ui, server )
 
 library(shiny)
 library(luna)
@@ -28,6 +28,7 @@ library(shinybusy)
 library(DT)
 library(shinyFiles)
 library(fs)
+library(shinyjs)
 
 # ------------------------------------------------------------
 # Options
@@ -44,8 +45,8 @@ pops.libs <- c("s2", "s2")
 pops.versions <- c("20-Jan-2023", "20-Dec-2022")
 
 # local mode: is default (look to 'host') unless running as server
-cat( "server mode MOONLIGHT_SERVER_MODE = [" , Sys.getenv("MOONLIGHT_SERVER_MODE")  , "]\n" , sep="" )
-local.mode <- Sys.getenv("MOONLIGHT_SERVER_MODE") == "" 
+cat("server mode MOONLIGHT_SERVER_MODE = [", Sys.getenv("MOONLIGHT_SERVER_MODE"), "]\n", sep = "")
+local.mode <- Sys.getenv("MOONLIGHT_SERVER_MODE") == ""
 
 # canonical file
 canonical.sigs <- "https://gitlab-scm.partners.org/zzz-public/nsrr/-/raw/master/common/resources/canonical/harm.txt"
@@ -75,30 +76,32 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
   #  titlePanel( h3( "Moonlight/Luna" ) ),
 
   add_busy_spinner(spin = "fading-circle"),
-        
+
   # Sidebar layout with input and output definitions ----
   sidebarLayout(
 
     # Sidebar panel for inputs ----
     sidebarPanel(
       width = 2,
-      h4( "Moonlight/Luna" ), 
-      if ( local.mode )
-       shinyFilesButton("lfiles", label="Load data",
-                        title="Please select EDF/annotations files", multiple=T,
-                        style = 'width: 100%' )
-      else
-       fileInput("files", label=NULL, multiple = T,accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot") ) ,
-          
-      if ( ! local.mode) div(style = "margin-top: -15px") , 
-
-      textOutput("text.header1a"),  
+      h4("Moonlight/Luna"),
+      if (local.mode) {
+        shinyFilesButton("lfiles",
+          label = "Load data",
+          title = "Please select EDF/annotations files", multiple = T,
+          style = "width: 100%"
+        )
+      } else {
+        fileInput("files", label = NULL, multiple = T, accept = c(".edf", ".edfz", ".gz", ".idx", ".xml", ".annot", ".eannot"))
+      },
+      if (!local.mode) div(style = "margin-top: -15px"),
+      textOutput("text.header1a"),
       hr(),
-#      div(style = "margin-top: -10px"),
+      #      div(style = "margin-top: -10px"),
       fluidRow(
-        column(6, actionButton("moonbeam", "Moonbeam") ) , 
-        column(6, actionButton("load.default", "Example" ) ) ),
-#      div(style = "margin-top: -10px"),
+        column(6, actionButton("moonbeam", "Moonbeam")),
+        column(6, actionButton("load.default", "Example"))
+      ),
+      #      div(style = "margin-top: -10px"),
       hr(),
 
       # Select channels
@@ -132,7 +135,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
         multiple = TRUE, selectize = FALSE
       ),
       fluidRow(
-        column(6, actionButton("reepoch", "Re-epoch") ),
+        column(6, actionButton("reepoch", "Re-epoch")),
         column(6, actionButton("reset", "Refresh"))
       )
     ),
@@ -153,37 +156,42 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
       ),
       plotOutput("mask.plot", width = "100%", height = "20px"),
       div(style = "margin-top: 10px"),
-
-   tabsetPanel( id = "maintabs" ,
-
-       tabPanel(
-          "Moonbeam" ,           
-	   selectizeInput("moonbeam.indivs",label="Individuals", choices= NULL , multiple = F , options = list( maxOptions = 10000 ) ),
-	   hr(),
-	   DT::dataTableOutput( "moonbeam.pheno" ) 
-         ), 
-
-       tabPanel( "Headers" ,
-	    fluidRow( column( 4 , DT::dataTableOutput("table.header3") ) ,
-	              column( 8 , DT::dataTableOutput("table.header2" ) ) )
+      tabsetPanel(
+        id = "maintabs",
+        tabPanel(
+          "Moonbeam",
+          selectizeInput("moonbeam.indivs", label = "Individuals", choices = NULL, multiple = F, options = list(maxOptions = 10000)),
+          hr(),
+          DT::dataTableOutput("moonbeam.pheno")
         ),
-	
-        tabPanel( "Structure",          
-         tabsetPanel( id="tab1" , 
-           tabPanel( "Segments",
-                     textOutput("text.segments"),
-                     plotOutput("plot.segments", width = "100%", height = "150px"),
-                     DT::dataTableOutput("table.segments") ),
-           tabPanel( "Epochs",
-                     hr(col = "white"),
-                     fluidRow(
-                      column(4, textOutput("basic.ecount"), DT::dataTableOutput("epoch.table1")),
-                      column(4, textOutput("aligned.ecount"), DT::dataTableOutput("epoch.table2")),
-                      column(4, textOutput("selected.ecount"), DT::dataTableOutput("epoch.table3")) )
+        tabPanel(
+          "Headers",
+          fluidRow(
+            column(4, DT::dataTableOutput("table.header3")),
+            column(8, DT::dataTableOutput("table.header2"))
+          )
+        ),
+        tabPanel(
+          "Structure",
+          tabsetPanel(
+            id = "tab1",
+            tabPanel(
+              "Segments",
+              textOutput("text.segments"),
+              plotOutput("plot.segments", width = "100%", height = "150px"),
+              DT::dataTableOutput("table.segments")
+            ),
+            tabPanel(
+              "Epochs",
+              hr(col = "white"),
+              fluidRow(
+                column(4, textOutput("basic.ecount"), DT::dataTableOutput("epoch.table1")),
+                column(4, textOutput("aligned.ecount"), DT::dataTableOutput("epoch.table2")),
+                column(4, textOutput("selected.ecount"), DT::dataTableOutput("epoch.table3"))
+              )
+            ),
           ),
-         ),
-	),
-	
+        ),
         tabPanel(
           "Hypnogram",
           tabsetPanel(
@@ -207,63 +215,68 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
               ),
               hr(), actionButton("hypno.assign", "Assign")
             ),
-	 tabPanel("SOAP", 
-          br(),
-           fluidRow(
-             column(3, selectInput("soap.ch", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
-             column(1, hr(), actionButton("soap.run", "Run SOAP"))
-           ),
-           plotOutput("plot.soap", width = "100%", height = "125px"),
-           fluidRow(
-             column(6, DT::dataTableOutput("table.soap", width = "95%")),
-             column(6, DT::dataTableOutput("table.soap.stages", width = "95%"))
-           )
-        ),
-         tabPanel(
-          "POPS",
-          fluidRow(
-            column(
-              9,
-              tabsetPanel(
-                id = "popstabs",
-                tabPanel(
-                  "M1",
-                  fluidRow(
-                    column(4, selectInput("pops.m1.eeg1", label = h5("EEG (C4-M1)"), choices = list(), multiple = F, selectize = F))
+            tabPanel(
+              "SOAP",
+              br(),
+              fluidRow(
+                column(3, selectInput("soap.ch", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
+                column(1, hr(), actionButton("soap.run", "Run SOAP"))
+              ),
+              plotOutput("plot.soap", width = "100%", height = "125px"),
+              fluidRow(
+                column(6, DT::dataTableOutput("table.soap", width = "95%")),
+                column(6, DT::dataTableOutput("table.soap.stages", width = "95%"))
+              )
+            ),
+            tabPanel(
+              "POPS",
+              fluidRow(
+                column(
+                  9,
+                  tabsetPanel(
+                    id = "popstabs",
+                    tabPanel(
+                      "M1",
+                      fluidRow(
+                        column(4, selectInput("pops.m1.eeg1", label = h5("EEG (C4-M1)"), choices = list(), multiple = F, selectize = F))
+                      )
+                    ),
+                    tabPanel(
+                      "M2",
+                      fluidRow(
+                        column(4, selectInput("pops.m2.eeg1", label = h5("EEG1 (C3-M2)"), choices = list(), multiple = F, selectize = F)),
+                        column(4, selectInput("pops.m2.eeg2", label = h5("EEG2 (C4-M1)"), choices = list(), multiple = F, selectize = F))
+                      )
+                    )
                   )
                 ),
+                column(
+                  3, hr(), shinyjs::useShinyjs(), actionButton("pops.run", "Run POPS"), checkboxInput("popsshap", label = "SHAP", value = F),
+                  checkboxInput("pops.filter", label = "Pre-filter", value = T),
+                  downloadButton("download_pops", label = "Download")
+                )
+              ),
+              tabsetPanel(
                 tabPanel(
-                  "M2",
+                  "Summaries", plotOutput("plot.pops", width = "100%", height = "150px"),
                   fluidRow(
-                    column(4, selectInput("pops.m2.eeg1", label = h5("EEG1 (C3-M2)"), choices = list(), multiple = F, selectize = F)),
-                    column(4, selectInput("pops.m2.eeg2", label = h5("EEG2 (C4-M1)"), choices = list(), multiple = F, selectize = F))
+                    column(6, DT::dataTableOutput("table.pops")),
+                    column(6, DT::dataTableOutput("table.pops.stages"))
                   )
+                ),
+                tabPanel("Epochs", DT::dataTableOutput("table.pops.epochs")),
+                tabPanel(
+                  "Features", fluidRow(
+                    column(3, selectInput("sel.pops.features2", h5("Features"), list(), multiple = T, selectize = F)),
+                    column(8, hr(col = "white"), plotOutput("plot.pops.features", width = "100%", height = "150px"))
+                  ),
+                  DT::dataTableOutput("sel.pops.features"),
+                  tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;"))
                 )
               )
-            ),
-            column(
-              3, hr(), actionButton("pops.run", "Run POPS"), checkboxInput("popsshap", label = "SHAP", value = F),
-              checkboxInput("pops.filter", label = "Pre-filter", value = F)
             )
-          ),
-          tabsetPanel(
-            tabPanel(
-              "Summaries", plotOutput("plot.pops", width = "100%", height = "150px"),
-              fluidRow(
-                column(6, DT::dataTableOutput("table.pops")),
-                column(6, DT::dataTableOutput("table.pops.stages"))
-              )
-            ),
-            tabPanel("Epochs", DT::dataTableOutput("table.pops.epochs")),
-            tabPanel(
-              "Features", fluidRow(
-                column(3, selectInput("sel.pops.features2", h5("Features"), list(), multiple = T, selectize = F)),
-                column(8, hr(col = "white"), plotOutput("plot.pops.features", width = "100%", height = "150px"))
-              ),
-              DT::dataTableOutput("sel.pops.features"),
-              tags$head(tags$style("#sel.pops.features2{height: 800px; width: 20px; font-size: 100px;"))
-            )
-        ))) ),
+          )
+        ),
         tabPanel(
           "Annots",
           plotOutput("annot.view", width = "100%", height = "175px"),
@@ -273,7 +286,6 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
             tabPanel("Instances", dataTableOutput("annot.table"))
           )
         ),
-
         tabPanel(
           "Signals",
           fluidRow(
@@ -301,143 +313,196 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
           ),
           hr()
         ),
-
-        tabPanel( "Stats" ,
-	  tabsetPanel(
-           tabPanel( "Channel" , DT::dataTableOutput( "cstats.table" ) ) ,
-	   tabPanel( "Epoch" , DT::dataTableOutput( "estats.table" ) )
-	   )
-	  ),
-
-        tabPanel( "Time/freq" , 
-          tabsetPanel( 
-           tabPanel(
-            "Spectrogram",
-            fluidRow(
-	     column( 2 , selectInput( "mtm.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ),
-	     column( 2 , numericInput("mtm.flwr", label = h5("Lower freq. (Hz)"), min = 0 , max = 256 , value = 0.5 ) ) ,  
-	     column( 2 , numericInput("mtm.fupr", label = h5("Upper freq. (Hz)"), min = 0 , max = 256 , value = 25 ) ) ,
-	     column( 2 , numericInput("mtm.winsor", label = h5("Winsorization"), min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ) ,
-	     column( 2 , hr(col="white"), actionButton("do.mtm", "Run MTM" ) ) ), hr(),
-             plotOutput("mtm.view1", width = "100%", height = "75px", click = "mtm1_click"),
-             plotOutput("mtm.tr12",  width = "100%", height = "25px"),
-	     plotOutput("mtm.view2", width = "100%", height = "75px", click = "mtm2_click"),
-	     plotOutput("mtm.tr23",  width = "100%", height = "25px"),
-	     plotOutput("mtm.view3", width = "100%", height = "75px"),
-	     plotOutput("mtm.view4", width = "100%", height = "75px")          
-         ),
-
-         tabPanel(
-           "Hjorth",
- 	    fluidRow( column(1 , HTML('Winsorization:')),
- 	              column(2,  numericInput("sigsumm.winsor", label = NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
-	              column(2,  actionButton("do.sigsumm", "Build" ) ) ) , 
-            plotOutput("sigsumm.view1", width = "100%", height = "325px", hover = hoverOpts(id="sigsumm_hover"  ) ),
-            hr(col="white"),
-	    plotOutput("sigsumm.view2", width = "100%", height = "125px"  )
-        ),
-
         tabPanel(
-          "ExE",
-            fluidRow( column( 2, selectInput( "exe.ch" , label = h5("Channel(s)"), choices = list(), multiple=F, selectize=F ) ) ,
-                      column( 2, numericInput("exe.m", label = h5("m"), NULL, min = 3 , max = 7 , value = 5 , step=1 ) ),
-	              column( 2, numericInput("exe.t", label = h5("t"), NULL, min = 1 , max = 20 , value = 1 , step=1 ) ),
-		      column( 2, numericInput("exe.rep", label = h5("Splits"), NULL, min = 1 , max = 20 , value = 5 , step=1 ) ),
-		      column( 2, numericInput("exe.win", label = h5("Winsorization"), NULL, min = 0 , max = 0.4 , value = 0.02 , step=0.01 ) ),
-		      column( 2 , hr(col="white"), actionButton("do.exe", "Run ExE" ) ) ), hr() ,
-             fluidRow( column(6, plotOutput("exe.view1", width = "100%", height = "75px" ) ) ,
-	               column(6, plotOutput("exe.view2", width = "100%", height = "75px" ) ) ), 
-             fluidRow( column( 6 , plotOutput("exe.hypno1", width = "100%", height="30px"),
-	                           plotOutput("exe.mat", width = "100%", height = "500px" , hover = hoverOpts(id="exe_hover" ) ) ) , 
-                       column( 6 , plotOutput("exe.hypno2", width = "100%", height="30px"),
-		                   plotOutput("exe.clst", width = "100%", height = "500px") ) ) ,
-		       hr(col="white"),       		       
+          "Stats",
+          tabsetPanel(
+            tabPanel("Channel", DT::dataTableOutput("cstats.table")),
+            tabPanel("Epoch", DT::dataTableOutput("estats.table"))
           )
-	 )
-	),
-
-
-       tabPanel("Manips",
-         tabsetPanel(
-           tabPanel("Re-reference" , 
-	            fluidRow(
-		     column( 4 , selectInput( "reref1" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
-		     column( 4 , selectInput( "reref2" , label = h5("Reference(s)"), choices = list(), multiple=T, selectize=F ) ) ,
-		     column( 4 , hr(col="white"), actionButton("doreref", "Re-reference" ) ) ) ) ,
-           tabPanel("Resample" ,
-                    fluidRow(
-                     column( 4 , selectInput( "resample" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
-                     column( 4 , numericInput("resamplerate", label = h5("Sample rate (Hz)"), min = 10 , max = 256 , value = 128 ) ) ,
-                     column( 4 , hr(col="white"), actionButton("doresample", "Resample" ) ) ) ) ,
-           tabPanel("Bandpass filter",
-                    fluidRow(
-                     column( 4 , selectInput( "filter" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
-                     column( 2 , numericInput("flwr", label = h5("Lower freq. (Hz)"), min = 0 , max = 256 , value = 0.3 ) ,
-		                 numericInput("ftw", label = h5("Transition width (Hz()"), min = 0 , max = 50 , value = 0.5 ) ) ,
-                     column( 2 , numericInput("fupr", label = h5("Upper freq. (Hz)"), min = 0 , max = 256 , value = 35 ) ,
-		                 numericInput("fripple", label = h5("Ripple"), min = 0 , max = 1 , value = 0.02 ) ) ,
-	        		 column( 4 , hr(col="white"), actionButton("dofilter", "Filter" ) ) ) ),
-	   tabPanel("Rename" ,
-	            fluidRow(
-                     column( 4 , selectInput( "renameold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
-                     column( 4 , textInput("renamenew", label = h5("New label") ) ) ,
-                     column( 4 , hr(col="white"), actionButton("dorename", "Rename channels" ) ) ) ) ,
-           tabPanel("Drop" ,
-                    fluidRow(
-                     column( 4 , selectInput( "drop" , label = h5("Channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
-                     column( 4 , hr(col="white"), actionButton("dodrop", "Drop channels" ) ) ) ) ,
-           tabPanel("Copy" ,
-	   	    fluidRow(
-                     column( 4 , selectInput( "copyold" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
-                     column( 4 , textInput("copytag", label = h5("New tag") ) ),
-                     column( 4 , hr(col="white"), actionButton("docopy", "Copy channel" ) ) ) ) ,
-	   tabPanel("Transform" ,
-	            fluidRow(
-                     column( 4 , selectInput( "transch" , label = h5("Channel"), choices = list(), multiple=F, selectize=F ) ) ,
-                     column( 4 , textInput("transexp", label = h5("Expression") ) ),
-                     column( 4 , hr(col="white"), actionButton("dotrans", "Transform" ) ) ) ),
-           tabPanel("Mask" ,
-                    fluidRow(
-                     column( 1 , radioButtons( "mask.inc", "Mask" , c("Include" = "1" , "Exclude" = "0" ) ) ) ,
-		     column( 4 , selectInput( "mask.annots" , label = h5("Annotations"), choices = list(), multiple=T, selectize=F ) ) ,
-                     column( 4 , textInput( "mask.expr", label = h5("Expression") , width='100%') ),
-                     column( 3 , hr(col="white"), actionButton("domask", "Set" ) ,
-		                       actionButton("flipmask", "Flip" ),
-		                       actionButton("clearmask", "Clear" ) ) ) ),
-           tabPanel("Map channels", hr( col="white" ) ,	    
-                  fluidRow( column( 9 , textAreaInput("canonical" , NULL , width = '100%' , height = '250px' , resize='none' ,
-					placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)" ) )  ,
-                            column( 3 , actionButton("mapchs", "Map") , actionButton( "addnsrr" , "Insert NSRR defaults" ) ) ) ,
-		  fluidRow( column( 6 , DT::dataTableOutput( "csmappings" ) ) , column( 6 , DT::dataTableOutput( "chmappings" ) ) ),
-                  hr( col="white" ) ) , 	   
-           tabPanel("Map annots",  hr( col="white" ) ,
-                  fluidRow( column( 9 , textAreaInput("remaps" , NULL , width = '100%' , height = '250px' , resize='none' ,
-                                        placeholder = "(Enter annotation remappings here, or insert NSRR defaults)" ) )  ,
-                            column( 3 , actionButton("mapanns", "Map") , actionButton( "addnsrr_anns" , "Insert NSRR defaults" ) ) ) ,
-                  DT::dataTableOutput( "annmappings" ) ,
-                  hr( col="white" ) ),
-           ),
-	verbatimTextOutput( "manipout" , placeholder= T ) ,
-        tags$head(tags$style("#manipout{color:black; font-size:9px;
-                                        overflow-y:scroll; height: 150px; background: ghostwhite;}") ),
-        tags$head(tags$style("#reref1{height: 175px; width: 175px; ") ) ,
-        tags$head(tags$style("#reref2{height: 175px; width: 175px; ") ) ,
-        tags$head(tags$style("#drop{height: 175px; width: 175px; ") ) , 
-        tags$head(tags$style("#resample{height: 175px; width: 175px; ") ) 
-       ),  
-
-
-      tabPanel("Norms",
-           textOutput( "norm.lab" , inline = FALSE), hr(col="white"), 
-           fluidRow( column( 2, numericInput("norm.age", label = h5("Age (years)"), min = 0 , max = 88 , value = 40 )  ,
-         	               radioButtons("norm.sex", "Sex" , c("Male" = "M" , "Female" = "F" ) ) ,
-			       selectInput("norm.eegF", label = h5("Frontal"), choices = list(), multiple = F, selectize = T),
-			       selectInput("norm.eegC", label = h5("Central"), choices = list(), multiple = F, selectize = T),
-     			       selectInput("norm.eegO", label = h5("Occipital"), choices = list(), multiple = F, selectize = T)
-			       ),
-                    column( 10 , plotOutput("norm.plots", width = "100%", height = "500px" ) ) )
         ),
-
+        tabPanel(
+          "Time/freq",
+          tabsetPanel(
+            tabPanel(
+              "Spectrogram",
+              fluidRow(
+                column(2, selectInput("mtm.ch", label = h5("Channel(s)"), choices = list(), multiple = F, selectize = F)),
+                column(2, numericInput("mtm.flwr", label = h5("Lower freq. (Hz)"), min = 0, max = 256, value = 0.5)),
+                column(2, numericInput("mtm.fupr", label = h5("Upper freq. (Hz)"), min = 0, max = 256, value = 25)),
+                column(2, numericInput("mtm.winsor", label = h5("Winsorization"), min = 0, max = 0.4, value = 0.02, step = 0.01)),
+                column(2, hr(col = "white"), actionButton("do.mtm", "Run MTM"))
+              ), hr(),
+              plotOutput("mtm.view1", width = "100%", height = "75px", click = "mtm1_click"),
+              plotOutput("mtm.tr12", width = "100%", height = "25px"),
+              plotOutput("mtm.view2", width = "100%", height = "75px", click = "mtm2_click"),
+              plotOutput("mtm.tr23", width = "100%", height = "25px"),
+              plotOutput("mtm.view3", width = "100%", height = "75px"),
+              plotOutput("mtm.view4", width = "100%", height = "75px")
+            ),
+            tabPanel(
+              "Hjorth",
+              fluidRow(
+                column(1, HTML("Winsorization:")),
+                column(2, numericInput("sigsumm.winsor", label = NULL, min = 0, max = 0.4, value = 0.02, step = 0.01)),
+                column(2, actionButton("do.sigsumm", "Build"))
+              ),
+              plotOutput("sigsumm.view1", width = "100%", height = "325px", hover = hoverOpts(id = "sigsumm_hover")),
+              hr(col = "white"),
+              plotOutput("sigsumm.view2", width = "100%", height = "125px")
+            ),
+            tabPanel(
+              "ExE",
+              fluidRow(
+                column(2, selectInput("exe.ch", label = h5("Channel(s)"), choices = list(), multiple = F, selectize = F)),
+                column(2, numericInput("exe.m", label = h5("m"), NULL, min = 3, max = 7, value = 5, step = 1)),
+                column(2, numericInput("exe.t", label = h5("t"), NULL, min = 1, max = 20, value = 1, step = 1)),
+                column(2, numericInput("exe.rep", label = h5("Splits"), NULL, min = 1, max = 20, value = 5, step = 1)),
+                column(2, numericInput("exe.win", label = h5("Winsorization"), NULL, min = 0, max = 0.4, value = 0.02, step = 0.01)),
+                column(2, hr(col = "white"), actionButton("do.exe", "Run ExE"))
+              ), hr(),
+              fluidRow(
+                column(6, plotOutput("exe.view1", width = "100%", height = "75px")),
+                column(6, plotOutput("exe.view2", width = "100%", height = "75px"))
+              ),
+              fluidRow(
+                column(
+                  6, plotOutput("exe.hypno1", width = "100%", height = "30px"),
+                  plotOutput("exe.mat", width = "100%", height = "500px", hover = hoverOpts(id = "exe_hover"))
+                ),
+                column(
+                  6, plotOutput("exe.hypno2", width = "100%", height = "30px"),
+                  plotOutput("exe.clst", width = "100%", height = "500px")
+                )
+              ),
+              hr(col = "white"),
+            )
+          )
+        ),
+        tabPanel(
+          "Manips",
+          tabsetPanel(
+            tabPanel(
+              "Re-reference",
+              fluidRow(
+                column(4, selectInput("reref1", label = h5("Channel(s)"), choices = list(), multiple = T, selectize = F)),
+                column(4, selectInput("reref2", label = h5("Reference(s)"), choices = list(), multiple = T, selectize = F)),
+                column(4, hr(col = "white"), actionButton("doreref", "Re-reference"))
+              )
+            ),
+            tabPanel(
+              "Resample",
+              fluidRow(
+                column(4, selectInput("resample", label = h5("Channel(s)"), choices = list(), multiple = T, selectize = F)),
+                column(4, numericInput("resamplerate", label = h5("Sample rate (Hz)"), min = 10, max = 256, value = 128)),
+                column(4, hr(col = "white"), actionButton("doresample", "Resample"))
+              )
+            ),
+            tabPanel(
+              "Bandpass filter",
+              fluidRow(
+                column(4, selectInput("filter", label = h5("Channel(s)"), choices = list(), multiple = T, selectize = F)),
+                column(
+                  2, numericInput("flwr", label = h5("Lower freq. (Hz)"), min = 0, max = 256, value = 0.3),
+                  numericInput("ftw", label = h5("Transition width (Hz()"), min = 0, max = 50, value = 0.5)
+                ),
+                column(
+                  2, numericInput("fupr", label = h5("Upper freq. (Hz)"), min = 0, max = 256, value = 35),
+                  numericInput("fripple", label = h5("Ripple"), min = 0, max = 1, value = 0.02)
+                ),
+                column(4, hr(col = "white"), actionButton("dofilter", "Filter"))
+              )
+            ),
+            tabPanel(
+              "Rename",
+              fluidRow(
+                column(4, selectInput("renameold", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
+                column(4, textInput("renamenew", label = h5("New label"))),
+                column(4, hr(col = "white"), actionButton("dorename", "Rename channels"))
+              )
+            ),
+            tabPanel(
+              "Drop",
+              fluidRow(
+                column(4, selectInput("drop", label = h5("Channel(s)"), choices = list(), multiple = T, selectize = F)),
+                column(4, hr(col = "white"), actionButton("dodrop", "Drop channels"))
+              )
+            ),
+            tabPanel(
+              "Copy",
+              fluidRow(
+                column(4, selectInput("copyold", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
+                column(4, textInput("copytag", label = h5("New tag"))),
+                column(4, hr(col = "white"), actionButton("docopy", "Copy channel"))
+              )
+            ),
+            tabPanel(
+              "Transform",
+              fluidRow(
+                column(4, selectInput("transch", label = h5("Channel"), choices = list(), multiple = F, selectize = F)),
+                column(4, textInput("transexp", label = h5("Expression"))),
+                column(4, hr(col = "white"), actionButton("dotrans", "Transform"))
+              )
+            ),
+            tabPanel(
+              "Mask",
+              fluidRow(
+                column(1, radioButtons("mask.inc", "Mask", c("Include" = "1", "Exclude" = "0"))),
+                column(4, selectInput("mask.annots", label = h5("Annotations"), choices = list(), multiple = T, selectize = F)),
+                column(4, textInput("mask.expr", label = h5("Expression"), width = "100%")),
+                column(
+                  3, hr(col = "white"), actionButton("domask", "Set"),
+                  actionButton("flipmask", "Flip"),
+                  actionButton("clearmask", "Clear")
+                )
+              )
+            ),
+            tabPanel(
+              "Map channels", hr(col = "white"),
+              fluidRow(
+                column(9, textAreaInput("canonical", NULL,
+                  width = "100%", height = "250px", resize = "none",
+                  placeholder = "(Enter CANONCAL mappings here, or insert NSRR defaults)"
+                )),
+                column(3, actionButton("mapchs", "Map"), actionButton("addnsrr", "Insert NSRR defaults"))
+              ),
+              fluidRow(column(6, DT::dataTableOutput("csmappings")), column(6, DT::dataTableOutput("chmappings"))),
+              hr(col = "white")
+            ),
+            tabPanel(
+              "Map annots", hr(col = "white"),
+              fluidRow(
+                column(9, textAreaInput("remaps", NULL,
+                  width = "100%", height = "250px", resize = "none",
+                  placeholder = "(Enter annotation remappings here, or insert NSRR defaults)"
+                )),
+                column(3, actionButton("mapanns", "Map"), actionButton("addnsrr_anns", "Insert NSRR defaults"))
+              ),
+              DT::dataTableOutput("annmappings"),
+              hr(col = "white")
+            ),
+          ),
+          verbatimTextOutput("manipout", placeholder = T),
+          tags$head(tags$style("#manipout{color:black; font-size:9px;
+                                        overflow-y:scroll; height: 150px; background: ghostwhite;}")),
+          tags$head(tags$style("#reref1{height: 175px; width: 175px; ")),
+          tags$head(tags$style("#reref2{height: 175px; width: 175px; ")),
+          tags$head(tags$style("#drop{height: 175px; width: 175px; ")),
+          tags$head(tags$style("#resample{height: 175px; width: 175px; "))
+        ),
+        tabPanel(
+          "Norms",
+          textOutput("norm.lab", inline = FALSE), hr(col = "white"),
+          fluidRow(
+            column(
+              2, numericInput("norm.age", label = h5("Age (years)"), min = 0, max = 88, value = 40),
+              radioButtons("norm.sex", "Sex", c("Male" = "M", "Female" = "F")),
+              selectInput("norm.eegF", label = h5("Frontal"), choices = list(), multiple = F, selectize = T),
+              selectInput("norm.eegC", label = h5("Central"), choices = list(), multiple = F, selectize = T),
+              selectInput("norm.eegO", label = h5("Occipital"), choices = list(), multiple = F, selectize = T)
+            ),
+            column(10, plotOutput("norm.plots", width = "100%", height = "500px"))
+          )
+        ),
         tabPanel(
           "Luna",
           tabsetPanel(
@@ -474,7 +539,6 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
             )
           )
         )
-	
       )
     )
   )
