@@ -1652,7 +1652,8 @@ server <- function(input, output, session) {
     req(values$elen == 30)
 
     equiv_mode <- F
-
+    shinyjs::disable("download_pops")
+    
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
 
@@ -1941,7 +1942,6 @@ server <- function(input, output, session) {
 
   # Download data frame
   output$download_pops <- downloadHandler(
-    # file <- gsub("\\..*", "_pops.txt", values$file.details$edf.name),
     filename = function() {
       gsub("\\..*", "_pops.txt", values$file.details$edf.name)
     },
