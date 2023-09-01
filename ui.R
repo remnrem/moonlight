@@ -253,7 +253,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                 column(
                   3, hr(), shinyjs::useShinyjs(), actionButton("pops.run", "Run POPS"), checkboxInput("popsshap", label = "SHAP", value = F),
                   checkboxInput("pops.filter", label = "Pre-filter", value = T),
-                  downloadButton("download_pops", label = "Download")
+                  downloadButton("download.pops", label = "Download"), actionButton("pops.hypnogram", "POPS Hypno"), actionButton("orig.hypnogram", "Given Hypno")
                 )
               ),
               tabsetPanel(

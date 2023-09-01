@@ -565,9 +565,15 @@ server <- function(input, output, session) {
         cat("attaching", values$opt[["edfpath"]], "\n")
         ledf(values$opt[["edfpath"]])
 
-        # Disable download_pops button everytime a new EDF is uploaded
-        shinyjs::disable("download_pops")
-
+        # Disable button every time a new EDF is uploaded
+        shinyjs::disable("download.pops")
+        shinyjs::disable("pops.hypnogram")
+        shinyjs::disable("orig.hypnogram")
+        
+        if (values$hasannots) {
+          shinyjs::enable("orig.hypnogram")
+        }
+        
         # read all EDF+ annotations as class-level
         # so that they show in the display
         lset("edf-annot-class-all", "T")
@@ -664,8 +670,9 @@ server <- function(input, output, session) {
   update.hypnogram <- function() {
     req(values$hasstaging)
 
-    try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
+    #try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
 
+    try(ret <- leval("HYPNO epoch"))
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
     stgs <- ret$HYPNO$E$STAGE
     stgs <- stgs[stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W"]
@@ -1092,12 +1099,24 @@ server <- function(input, output, session) {
   output$hypnogram <- renderPlot({
     req(values$hasedf, values$hasstaging)
     par(mar = c(0, 0, 0, 0))
+
     lhypno(values$opt[["hypno.epochs"]]$STAGE,
       cycles = values$opt[["hypno.epochs"]]$CYCLE,
       times = values$opt[["init.epochs.aligned"]]$START
     )
   })
 
+  observeEvent(input$pops.hypnogram, {
+    txtPath <- tempfile(fileext = ".annot")
+    write.table(values$pops[["pops.download"]], file = txtPath, sep = "\t", row.names = F, col.names = T, quote = F)
+    ledf(values$opt[["edfpath"]], "", txtPath)
+    update.hypnogram()
+  })
+  
+  observeEvent(input$orig.hypnogram, {
+    ledf(values$opt[["edfpath"]], "", values$opt[["annotpaths"]])
+    update.hypnogram()
+  })
 
   # allow users to specify nonstandard annot codes for stages
 
@@ -1653,6 +1672,7 @@ server <- function(input, output, session) {
 
     equiv_mode <- F
     shinyjs::disable("download_pops")
+    shinyjs::disable("pops.hypnogram")
     
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
@@ -1771,7 +1791,8 @@ server <- function(input, output, session) {
     values$pops[["pops.download"]] <- df_pops
 
     # Enable download_pops button after POPS prediction
-    shinyjs::enable("download_pops")
+    shinyjs::enable("download.pops")
+    shinyjs::enable("pops.hypnogram")
 
     if (equiv_mode) {
       values$pops[["pops.features"]] <- ret$POPS$E_FTR
@@ -1941,7 +1962,7 @@ server <- function(input, output, session) {
   # })
 
   # Download data frame
-  output$download_pops <- downloadHandler(
+  output$download.pops <- downloadHandler(
     filename = function() {
       gsub("\\..*", "_pops.txt", values$file.details$edf.name)
     },
@@ -3562,7 +3583,10 @@ server <- function(input, output, session) {
 
 
   # Disable download_pops button on page loading
-  shinyjs::disable("download_pops")
+  shinyjs::disable("download.pops")
+  shinyjs::disable("pops.hypnogram")
+  shinyjs::disable("orig.hypnogram")
+  
 
   # END
 }
