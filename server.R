@@ -670,9 +670,8 @@ server <- function(input, output, session) {
   update.hypnogram <- function() {
     req(values$hasstaging)
 
-    #try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
+    try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
 
-    try(ret <- leval("HYPNO epoch"))
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
     stgs <- ret$HYPNO$E$STAGE
     stgs <- stgs[stgs == "N1" | stgs == "N2" | stgs == "N3" | stgs == "R" | stgs == "W"]
