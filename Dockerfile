@@ -45,7 +45,9 @@ RUN install2.r --error --skipinstalled \
     wkb \
     aws.s3 \
     shinybusy \
+    shinyjs \
     shinythemes
+
 COPY Rprofile.site /usr/local/lib/R/etc/
 
 # Luna
@@ -102,6 +104,6 @@ COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/local/lib
 COPY --from=builder /Programme/LightGBM/lib_lightgbm.so /usr/lib
 COPY --from=builder /usr/local/lib/R /usr/local/lib/R
 
-ENV MOONLIGHT_SERVER_MODE=0
+ENV MOONLIGHT_SERVER_MODE=1
 EXPOSE 3838
 CMD ["R", "-q", "-e", "shiny::runApp('/root/moon')"]
