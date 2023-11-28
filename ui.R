@@ -427,18 +427,44 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
        ),  
 
 
-      tabPanel("Norms",
-           textOutput( "norm.lab" , inline = FALSE), hr(col="white"), 
-           fluidRow( column( 2, numericInput("norm.age", label = h5("Age (years)"), min = 0 , max = 88 , value = 40 )  ,
+      tabPanel("Models",
+
+         tabsetPanel(
+
+          tabPanel( "Adult age prediction" ,
+                     fluidRow(
+		      column(6,
+		       textOutput( "mod1.lab" , inline = FALSE),
+                       hr(col="white"),
+		       textOutput( "mod1.inp" , inline = FALSE), 
+		       textOutput( "mod1.out" , inline = FALSE), 
+                       hr(col="white"),
+		       textOutput( "mod1.notes" , inline = FALSE) ),
+		      column(6,
+		        fluidRow(
+                         column( 6 , selectInput( "mod1.ch" , label = h5("Central channel(s)"), choices = list(), multiple=T, selectize=F ) ) ,
+                         column( 5 , numericInput("mod1.age", label = h5("Age (years)"), min = 40 , max = 90 , value = 50 ) ,
+		                     numericInput("mod1.th", label = h5("Missing threshold (SD)"), min = 0 , max = 10 , value = 5 )  ,	 	                     
+				     actionButton("do.mod1", "Predict" ) ) ) ) ),
+	              hr(col="white"),
+                      DT::dataTableOutput( "mod1.out1", width = "100%")  ,
+		      DT::dataTableOutput( "mod1.out2", width = "100%")  
+                    ) ,
+
+          tabPanel("Norms",
+                   textOutput( "norm.lab" , inline = FALSE), hr(col="white"), 
+                   fluidRow( column( 2,numericInput("norm.age", label = h5("Age (years)"), min = 0 , max = 88 , value = 40 )  ,
          	               radioButtons("norm.sex", "Sex" , c("Male" = "M" , "Female" = "F" ) ) ,
 			       selectInput("norm.eegF", label = h5("Frontal"), choices = list(), multiple = F, selectize = T),
 			       selectInput("norm.eegC", label = h5("Central"), choices = list(), multiple = F, selectize = T),
-     			       selectInput("norm.eegO", label = h5("Occipital"), choices = list(), multiple = F, selectize = T)
-			       ),
-                    column( 10 , plotOutput("norm.plots", width = "100%", height = "500px" ) ) )
-        ),
+     			       selectInput("norm.eegO", label = h5("Occipital"), choices = list(), multiple = F, selectize = T) ),
+                             column( 10 , plotOutput("norm.plots", width = "100%", height = "500px" ) ) ) )          
 
-        tabPanel(
+        )
+       ),
+
+
+     tabPanel(
           "Luna",
           tabsetPanel(
             tabPanel(
