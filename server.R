@@ -2584,13 +2584,13 @@ load.data <- observeEvent( values$file.details , {
 
   # outlier removal and normalization
   if ( has.occ ) { 
-   alpha <- median( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
+   alpha <- mean( outliers( alpha ) / outliers( totalOW ) , na.rm=T )
   }
 
   if ( has.cen ) {
-   theta <- median( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
-   sigma <- median( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
-   delta <- median( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
+   theta <- mean( outliers( theta ) / outliers( totalCN1 ) , na.rm=T )
+   sigma <- mean( outliers( sigma ) / outliers( totalCN2 ) , na.rm=T )  
+   delta <- mean( outliers( delta ) / outliers( totalCN3 ) , na.rm=T )
   }
 
 # others to add...
