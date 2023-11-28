@@ -2730,7 +2730,7 @@ output$norm.plots <- renderPlot({
     
     DT::datatable(df,
       options = list(
-        scrollY = "280px",
+        scrollY = "200px",
         scrollX = "100%",
         dom = "tB",
         buttons = list(list(extend = "copy", text = "Copy")),

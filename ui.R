@@ -448,6 +448,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
 				     actionButton("do.mod1", "Predict" ) ) ) ) ),
 	              hr(col="white"),
                       DT::dataTableOutput( "mod1.out1", width = "100%")  ,
+                      hr(col="white"),
 		      DT::dataTableOutput( "mod1.out2", width = "100%")  
                     ) ,
 
