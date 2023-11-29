@@ -634,7 +634,7 @@ server <- function(input, output, session) {
     ret <- leval("HYPNO epoch")
 
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
-    stgs <- lstages()
+    stgs <- leval("STAGE force")$STAGE$E$STAGE
     values$hasstaging <- !is.null(stgs)
     values$variable.staging <- F
     if (values$hasstaging) {
@@ -662,7 +662,6 @@ server <- function(input, output, session) {
     values$view[["bpflt"]] <- c(0.3, 35)
 
     # report to console
-
     cat(" # epochs (raw)", values$opt[["ne"]], "\n")
     cat(" # epochs (stage-aligned)", values$opt[["ne.aligned"]], "\n")
     cat(" has-staging?", values$hasstaging, "\n")
@@ -673,6 +672,7 @@ server <- function(input, output, session) {
   # update hypnogram
 
   update.hypnogram <- function() {
+    
     req(values$hasstaging)
 
     try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
@@ -685,7 +685,7 @@ server <- function(input, output, session) {
     cat("updating hypnogram: variable.staging =", values$variable.staging, "\n")
 
     req(values$variable.staging)
-
+    
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
@@ -703,7 +703,7 @@ server <- function(input, output, session) {
 
   update <- function() {
     isolate({
-      # get HEADERS/ANNOTS (raw eppochs)
+      # get HEADERS/ANNOTS (raw epochs)
       ret <- leval("SEGMENTS & HEADERS & ANNOTS & DUMP-MASK")
 
       # no records left?
@@ -1115,6 +1115,7 @@ server <- function(input, output, session) {
     txtPath <- tempfile(fileext = ".annot")
     write.table(values$pops[["pops.download"]], file = txtPath, sep = "\t", row.names = F, col.names = T, quote = F)
     ledf(values$opt[["edfpath"]], "", txtPath)
+    values$hasstaging <- T
     update.hypnogram()
   })
 
