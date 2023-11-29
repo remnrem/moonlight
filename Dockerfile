@@ -92,6 +92,7 @@ RUN mkdir /root/moon
 COPY ui.R server.R /root/moon/
 COPY pops /root/moon/pops
 COPY data /root/moon/data
+COPY models /root/moon/models
 
 ENV _R_SHLIB_STRIP_=true
 COPY --from=builder /Programme/luna-base/luna /usr/local/bin/luna
