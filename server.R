@@ -571,12 +571,12 @@ server <- function(input, output, session) {
         ledf(values$opt[["edfpath"]])
 
         # Disable button every time a new EDF is uploaded
-        shinyjs::disable("download.pops")
-        shinyjs::disable("pops.hypnogram")
-        shinyjs::disable("orig.hypnogram")
+        disable(id = "download.pops")
+        disable(id = "pops.hypnogram")
+        disable(id = "orig.hypnogram")
 
         if (values$hasannots) {
-          shinyjs::enable("orig.hypnogram")
+          enable(id = "orig.hypnogram")
         }
 
         # read all EDF+ annotations as class-level
@@ -1676,8 +1676,8 @@ server <- function(input, output, session) {
     req(values$elen == 30)
 
     equiv_mode <- F
-    shinyjs::disable("download_pops")
-    shinyjs::disable("pops.hypnogram")
+    disable(id = "download_pops")
+    disable(id = "pops.hypnogram")
 
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
@@ -1796,8 +1796,8 @@ server <- function(input, output, session) {
     values$pops[["pops.download"]] <- df_pops
 
     # Enable download_pops button after POPS prediction
-    shinyjs::enable("download.pops")
-    shinyjs::enable("pops.hypnogram")
+    enable(id = "download.pops")
+    enable(id = "pops.hypnogram")
 
 
     if (equiv_mode) {
@@ -3674,10 +3674,9 @@ server <- function(input, output, session) {
   })
 
   # Disable download_pops button on page loading
-  shinyjs::disable("download.pops")
-  shinyjs::disable("pops.hypnogram")
-  shinyjs::disable("orig.hypnogram")
-
+  disable(id = "download.pops")
+  disable(id = "pops.hypnogram")
+  disable(id = "orig.hypnogram")
 
   # END
 }

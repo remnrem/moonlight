@@ -43,10 +43,11 @@ RUN install2.r --error --skipinstalled \
     shinydashboard \
     lubridate \
     wkb \
-    shinyjs \
     aws.s3 \
     shinybusy \
+    shinyjs \
     shinythemes
+
 COPY Rprofile.site /usr/local/lib/R/etc/
 
 # Luna
