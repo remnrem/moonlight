@@ -2444,6 +2444,43 @@ server <- function(input, output, session) {
   })
 
 
+  observeEvent(input$do.cmref, {
+    req( values$hasedf )
+    chs <- values$opt[["chs"]]
+    req( "A1" %in% chs | "M1" %in% chs )
+    req( "A2" %in% chs | "M2" %in% chs )
+    
+    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
+    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
+    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
+    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
+
+    values$manipout <- capture.output(leval( cmds ) )
+
+    update()
+  })
+
+  observeEvent(input$do.cmref.pops, {
+    req( values$hasedf )    
+    chs <- values$opt[["chs"]]
+    req( "A1" %in% chs | "M1" %in% chs )
+    req( "A2" %in% chs | "M2" %in% chs )
+    
+    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
+    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
+    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
+    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
+
+    leval( cmds ) 
+
+    update()
+  })
+
+
   observeEvent(input$doresample, {
     req(input$resample, input$resamplerate)
     pris <- paste(input$resample, collapse = ",")
@@ -2732,10 +2769,10 @@ server <- function(input, output, session) {
     "Inputs: one or more mastoid-referenced central EEG channels and sleep staging"
   })
   output$mod1.out <- renderText({
-    "Outputs: (bias-adjusted) predicted age (years)"
+    "Primary output: Y1 = bias-adjusted predicted age (years)"
   })
   output$mod1.notes <- renderText({
-    "Usage: appropriate for older adults (~40-80 years) with whole-night sleep data"
+    "Usage: appropriate for older adults (~40-80 years) with staged, whole-night sleep data"
   })
 
   # run actual prediction
@@ -2743,7 +2780,7 @@ server <- function(input, output, session) {
     req(values$hasedf, values$hasstaging)
     lset("age", input$mod1.age)
     lset("th", input$mod1.th)
-    lset("cen", input$mod1.ch)
+    lset("cen", paste( input$mod1.ch, collapse="," ) )
     lset("mpath", "models/")
     k <- leval(lcmd("models/m1-adult-age-luna.txt"))
 
