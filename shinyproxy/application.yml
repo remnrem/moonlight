@@ -6,7 +6,7 @@ proxy:
     port: 9191
     template-path: ./templates/1col
     container-wait-time: 20000
-    container-log-path: ./container-logs
+    container-log-path: ./container-logs # Please make sure to set permission ( chown shinyproxy:shinyproxy container-logs/ )
     support:
       mail-to-address: luna.remnrem@gmail.com
   
@@ -24,7 +24,12 @@ proxy:
     - id: moonlight
       display-name: Moonlight
       container-cmd: ["R", "-e", "shiny::runApp('/root/moon')"]
-      container-image: moonlight-moonbeam-may02-2023
+      container-image: moonlight-moonbeam-sep26-2023
+      max-instances: 1
+    - id: hypnoscope
+      display-name: Hypnoscope
+      container-cmd: ["R", "-e", "shiny::runApp('/root/hypnoscope')"]
+      container-image: hypnoscope-dec04-2023
       max-instances: 1
 
 management:
