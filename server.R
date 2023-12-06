@@ -629,7 +629,8 @@ server <- function(input, output, session) {
     ret <- leval("HYPNO epoch")
 
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
-    stgs <- lstages()
+    # stgs <- lstages()
+    stgs <- leval("STAGE force")$STAGE$E$STAGE
     values$hasstaging <- !is.null(stgs)
     values$variable.staging <- F
     if (values$hasstaging) {
