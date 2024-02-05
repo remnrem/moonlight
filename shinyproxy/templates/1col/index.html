@@ -65,15 +65,12 @@
 				</div>
 			</div>
 			<hr></hr>
-		</div>
-	</div>
-
+<span th:if="${app.description == 'Moonlight'}">
 	<p style="font-family:Helvetica;font-size:130%;">
 	Moonlight is a Luna-based interactive viewer for EDF signal and annotations, specifically designed for polysomnographic data.</br>
 	As well as visualization, Moonlight supports basic analyses and manipulation of sleep signals, a range of summary statistics and <br>
 	hypnogram-based analyses including automated staging.
 	</p>
-
 	<p>
 		<b style="color:#000080;font-size:130%;font-family:Helvetica">For brief tour visit </b>
 		<a 
@@ -87,12 +84,12 @@
 	Please try again later or run Moonlight locally (see below). If the problem persists, contact <u><span style="color:#159CEE;font-size:18px;font-family:Helvetica;">luna.remnrem@gmail.com</span></u>
 	</p>
 
-    <br>
+	<br>
 
-    <p>	
+	<p>	
 	<b style="color:#000080;font-size:130%;font-family:Helvetica">Running Moonlight locally (via Docker) </b>
-    </p>
-	
+	</p>
+
 	<p style="font-family:Helvetica;font-size:130%;">
 	Moonlight is also distributed as a containerized application that can be run locally using Docker.<br>
 	Once you have Docker Desktop installed, first pull the moonlight image from Dockerhub:<br>
@@ -106,23 +103,21 @@
 	<br>
 
 	and use your browser to visit: 
-    <a href="http://127.0.0.1:3838/" target="_blank"><u><span style="color:#159CEE;font-size:18px;font-family:Helvetica;">http://127.0.0.1:3838/</span></u></a>
-	</p>
+	<a href="http://127.0.0.1:3838/" target="_blank"><u><span style="color:#159CEE;font-size:18px;font-family:Helvetica;">http://127.0.0.1:3838/</span></u></a>
+</p>
 
-    <hr style="width:60%;text-align:left;margin-left:10px">
+</span>
 
-    <p>	
-	    <b style="color:#000080;font-size:130%;font-family:Helvetica">Hypnoscope </b>
-    </p>
-	
+<span th:if="${app.description == 'Hypnoscope'}">
     <p style="font-family:Helvetica;font-size:130%;">
-	Hypnoscope is a tool for viewing hypnograms (currently under development). See
-    <a
-    href="zzz.bwh.harvard.edu/luna/hypnoscope" target="_blank"><u><span style="color:#159CEE;font-size:18px;font-family:Helvetica;">[this page]</span></u>
-    </a>
-    for more details.
-
-	</p>
+	Hypnoscope is a tool for viewing hypnograms. See
+    	<a
+     	href="https://zzz.bwh.harvard.edu/luna/hypnoscope" target="_blank"><u><span style="color:#159CEE;font-size:18px;font-family:Helvetica;">[this page]</span></u>
+    	</a> for more details.
+    </p>
+</span>
+	</div>
+</div>
 
         
 	<div th:if="${myAppsMode == 'Inline'}" class="col-md-5 col-lg-4 col-xs-12 myApps-inline">
