@@ -17,17 +17,19 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libomp-dev \
     libxt6 \
+    software-properties-common \
+    lsb-release \
+    gpg-agent \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and Install CMake (Adjust the version number and URL as needed)
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-Linux-x86_64.sh \
-    && chmod +x cmake-3.20.2-Linux-x86_64.sh \
-    && ./cmake-3.20.2-Linux-x86_64.sh --skip-license --prefix=/usr/local \
-    && rm cmake-3.20.2-Linux-x86_64.sh
+# Add Kitware's APT repository for up-to-date CMake versions
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
+    && echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
+    && apt-get update
 
-# Verify Installation
-RUN cmake --version
+# Install CMake (specifying a version or the latest available)
+RUN apt-get install -y cmake
 
 WORKDIR /Programme
 
