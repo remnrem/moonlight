@@ -486,7 +486,6 @@ server <- function(input, output, session) {
       values$manipout <- NULL
       values$nz <- 1
       values$canonical <- NULL
-      values$mods <- NULL
       values$LOFF <- values$LON <- "."
 
       # reset Shiny UI components
@@ -510,7 +509,6 @@ server <- function(input, output, session) {
       # EXE time-series clustering
       updateSelectInput(session, "exe.ch", choices = "", label = NULL, selected = 0)
 
-
       # Misc data manipulations
       updateSelectInput(session, "reref1", choices = "", label = NULL, selected = 0)
       updateSelectInput(session, "reref2", choices = "", label = NULL, selected = 0)
@@ -531,9 +529,6 @@ server <- function(input, output, session) {
       updateSelectInput(session, "pops.m1.eeg1", choices = "", label = NULL, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = "", label = NULL, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = "", label = NULL, selected = 0)
-
-      # Models
-      updateSelectInput(session, "mod1.ch", choices = "", label = NULL, selected = 0)
 
       # Sleep norms panel
       updateSelectInput(session, "norm.eegF", choices = "", label = NULL, selected = 0)
@@ -571,12 +566,12 @@ server <- function(input, output, session) {
         ledf(values$opt[["edfpath"]])
 
         # Disable button every time a new EDF is uploaded
-        disable(id = "download.pops")
-        disable(id = "pops.hypnogram")
-        disable(id = "orig.hypnogram")
+        shinyjs::disable("download.pops")
+        shinyjs::disable("pops.hypnogram")
+        shinyjs::disable("orig.hypnogram")
 
         if (values$hasannots) {
-          enable(id = "orig.hypnogram")
+          shinyjs::enable("orig.hypnogram")
         }
 
         # read all EDF+ annotations as class-level
@@ -634,7 +629,7 @@ server <- function(input, output, session) {
     ret <- leval("HYPNO epoch")
 
     # to count as having 'staging', we need at least two different, w/ at least 10 epochs
-    stgs <- leval("STAGE force")$STAGE$E$STAGE
+    stgs <- lstages()
     values$hasstaging <- !is.null(stgs)
     values$variable.staging <- F
     if (values$hasstaging) {
@@ -662,6 +657,7 @@ server <- function(input, output, session) {
     values$view[["bpflt"]] <- c(0.3, 35)
 
     # report to console
+
     cat(" # epochs (raw)", values$opt[["ne"]], "\n")
     cat(" # epochs (stage-aligned)", values$opt[["ne.aligned"]], "\n")
     cat(" has-staging?", values$hasstaging, "\n")
@@ -672,7 +668,6 @@ server <- function(input, output, session) {
   # update hypnogram
 
   update.hypnogram <- function() {
-    
     req(values$hasstaging)
 
     try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
@@ -685,7 +680,7 @@ server <- function(input, output, session) {
     cat("updating hypnogram: variable.staging =", values$variable.staging, "\n")
 
     req(values$variable.staging)
-    
+
     values$opt[["hypno.stats"]] <- ret$HYPNO$BL
     values$opt[["hypno.epochs"]] <- ret$HYPNO$E
     values$opt[["all.hypno.epochs"]] <- ret$HYPNO$E
@@ -703,7 +698,7 @@ server <- function(input, output, session) {
 
   update <- function() {
     isolate({
-      # get HEADERS/ANNOTS (raw epochs)
+      # get HEADERS/ANNOTS (raw eppochs)
       ret <- leval("SEGMENTS & HEADERS & ANNOTS & DUMP-MASK")
 
       # no records left?
@@ -816,8 +811,6 @@ server <- function(input, output, session) {
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = s50, selected = 0)
-
-      updateSelectInput(session, "mod1.ch", label = NULL, choices = c(s50), selected = 0)
 
       updateSelectInput(session, "norm.eegF", label = NULL, choices = c("--none--", s50), selected = 0) # ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
       updateSelectInput(session, "norm.eegC", label = NULL, choices = c("--none--", s50), selected = 0)
@@ -1105,6 +1098,7 @@ server <- function(input, output, session) {
   output$hypnogram <- renderPlot({
     req(values$hasedf, values$hasstaging)
     par(mar = c(0, 0, 0, 0))
+
     lhypno(values$opt[["hypno.epochs"]]$STAGE,
       cycles = values$opt[["hypno.epochs"]]$CYCLE,
       times = values$opt[["init.epochs.aligned"]]$START
@@ -1115,7 +1109,6 @@ server <- function(input, output, session) {
     txtPath <- tempfile(fileext = ".annot")
     write.table(values$pops[["pops.download"]], file = txtPath, sep = "\t", row.names = F, col.names = T, quote = F)
     ledf(values$opt[["edfpath"]], "", txtPath)
-    values$hasstaging <- T
     update.hypnogram()
   })
 
@@ -1677,8 +1670,8 @@ server <- function(input, output, session) {
     req(values$elen == 30)
 
     equiv_mode <- F
-    disable(id = "download_pops")
-    disable(id = "pops.hypnogram")
+    shinyjs::disable("download_pops")
+    shinyjs::disable("pops.hypnogram")
 
     if (input$popstabs == "M1") {
       req(input$pops.m1.eeg1)
@@ -1797,9 +1790,8 @@ server <- function(input, output, session) {
     values$pops[["pops.download"]] <- df_pops
 
     # Enable download_pops button after POPS prediction
-    enable(id = "download.pops")
-    enable(id = "pops.hypnogram")
-
+    shinyjs::enable("download.pops")
+    shinyjs::enable("pops.hypnogram")
 
     if (equiv_mode) {
       values$pops[["pops.features"]] <- ret$POPS$E_FTR
@@ -2118,9 +2110,12 @@ server <- function(input, output, session) {
         #
         stgs <- values$opt[["ss"]][, c("E", "STAGE", "START_SEC", "STOP_SEC")]
         stgs <- stgs[stgs$START_SEC < secs[2] & stgs$STOP_SEC >= secs[1], ]
-        if (dim(stgs)[1] > 0) {
-          for (e in 1:(dim(stgs)[1])) {
-            rect(stgs$START_SEC[e], 0.99, stgs$STOP_SEC[e], 1.00, col = lstgcols(stgs$STAGE[e]), border = NA)
+
+        if (!is.null(stgs)) {
+          if (dim(stgs)[1] > 0) {
+            for (e in 1:(dim(stgs)[1])) {
+              rect(stgs$START_SEC[e], 0.99, stgs$STOP_SEC[e], 1.00, col = lstgcols(stgs$STAGE[e]), border = NA)
+            }
           }
         }
 
@@ -2444,43 +2439,6 @@ server <- function(input, output, session) {
   })
 
 
-  observeEvent(input$do.cmref, {
-    req( values$hasedf )
-    chs <- values$opt[["chs"]]
-    req( "A1" %in% chs | "M1" %in% chs )
-    req( "A2" %in% chs | "M2" %in% chs )
-    
-    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
-    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
-    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
-    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
-    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
-    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
-
-    values$manipout <- capture.output(leval( cmds ) )
-
-    update()
-  })
-
-  observeEvent(input$do.cmref.pops, {
-    req( values$hasedf )    
-    chs <- values$opt[["chs"]]
-    req( "A1" %in% chs | "M1" %in% chs )
-    req( "A2" %in% chs | "M2" %in% chs )
-    
-    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
-    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
-    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
-    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
-    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
-    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
-
-    leval( cmds ) 
-
-    update()
-  })
-
-
   observeEvent(input$doresample, {
     req(input$resample, input$resamplerate)
     pris <- paste(input$resample, collapse = ",")
@@ -2671,13 +2629,13 @@ server <- function(input, output, session) {
 
     # outlier removal and normalization
     if (has.occ) {
-      alpha <- mean(outliers(alpha) / outliers(totalOW), na.rm = T)
+      alpha <- median(outliers(alpha) / outliers(totalOW), na.rm = T)
     }
 
     if (has.cen) {
-      theta <- mean(outliers(theta) / outliers(totalCN1), na.rm = T)
-      sigma <- mean(outliers(sigma) / outliers(totalCN2), na.rm = T)
-      delta <- mean(outliers(delta) / outliers(totalCN3), na.rm = T)
+      theta <- median(outliers(theta) / outliers(totalCN1), na.rm = T)
+      sigma <- median(outliers(sigma) / outliers(totalCN2), na.rm = T)
+      delta <- median(outliers(delta) / outliers(totalCN3), na.rm = T)
     }
 
     # others to add...
@@ -2755,92 +2713,6 @@ server <- function(input, output, session) {
       frame()
       frame()
     }
-  })
-
-
-  # ------------------------------------------------------------
-  # Prediction models : adult age (Sun)
-  #
-
-  output$mod1.lab <- renderText({
-    "Sun et al (2019) |  Brain age from the electroencephalogram of sleep | doi: 10.1016/j.neurobiolaging.2018.10.016"
-  })
-  output$mod1.inp <- renderText({
-    "Inputs: one or more mastoid-referenced central EEG channels and sleep staging"
-  })
-  output$mod1.out <- renderText({
-    "Primary output: Y1 = bias-adjusted predicted age (years)"
-  })
-  output$mod1.notes <- renderText({
-    "Usage: appropriate for older adults (~40-80 years) with staged, whole-night sleep data"
-  })
-
-  # run actual prediction
-  observeEvent(input$do.mod1, {
-    req(values$hasedf, values$hasstaging)
-    lset("age", input$mod1.age)
-    lset("th", input$mod1.th)
-    lset("cen", paste( input$mod1.ch, collapse="," ) )
-    lset("mpath", "models/")
-    k <- leval(lcmd("models/m1-adult-age-luna.txt"))
-
-    okay <- k$PREDICT$BL$OKAY == 1
-    if (okay) {
-      values$mods[["mod1"]] <- list(T1 = k$PREDICT$BL, T2 = k$PREDICT$FTR)
-    } else {
-      values$mods[["mod1"]] <- list(T1 = k$PREDICT$BL, T2 = NULL)
-    }
-  })
-
-
-  # outputs
-
-  output$mod1.out1 <- DT::renderDataTable({
-    req(values$mods[["mod1"]])
-
-    df <- values$mods[["mod1"]]$T1
-    df$ID <- NULL
-    df$Y <- round(df$Y, 2)
-    df$Y1 <- round(df$Y1, 2)
-    df <- df[, c("OKAY", "NF", "NF_OBS", "YOBS", "Y", "Y1")]
-
-    DT::datatable(df,
-      options = list(
-        scrollX = "100%",
-        paging = F, ordering = F,
-        info = FALSE,
-        searching = FALSE,
-        columnDefs = list(list(className = "dt-center", targets = "_all"))
-      ),
-      rownames = FALSE
-    )
-  })
-
-
-  output$mod1.out2 <- DT::renderDataTable({
-    req(values$mods[["mod1"]]$T2)
-
-    df <- values$mods[["mod1"]]$T2
-    df$ID <- NULL
-    df$D <- round(df$D, 3)
-    df$X <- round(df$X, 3)
-    df$Z <- round(df$Z, 3)
-    if (!("REIMP" %in% names(df))) df$REIMP <- 0
-    df <- df[, c("FTR", "X", "Z", "D", "IMP", "REIMP")]
-
-    DT::datatable(df,
-      options = list(
-        scrollY = "200px",
-        scrollX = "100%",
-        dom = "tB",
-        buttons = list(list(extend = "copy", text = "Copy")),
-        paging = F, ordering = F,
-        info = FALSE,
-        searching = FALSE,
-        columnDefs = list(list(className = "dt-center", targets = 1:5))
-      ),
-      rownames = FALSE
-    )
   })
 
 
@@ -3711,10 +3583,12 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "moonbeam.indivs", selected = values$nsrr.indivs, label = paste("Cohort:", input$nsrr.cohorts))
   })
 
+
   # Disable download_pops button on page loading
-  disable(id = "download.pops")
-  disable(id = "pops.hypnogram")
-  disable(id = "orig.hypnogram")
+  shinyjs::disable("download.pops")
+  shinyjs::disable("pops.hypnogram")
+  shinyjs::disable("orig.hypnogram")
+
 
   # END
 }

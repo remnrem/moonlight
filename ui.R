@@ -251,13 +251,13 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                   )
                 ),
                 column(
-                  3, hr(), actionButton("pops.run", "Run POPS",width="100%"),
-		  actionButton( "do.cmref.pops", "Do CM re-referencing",width="100%" ),
-		  checkboxInput("popsshap", label = "SHAP", value = F),
+                  3, hr(), actionButton("pops.run", "Run POPS", width = "100%"),
+                  actionButton("do.cmref.pops", "Do CM re-referencing", width = "100%"),
+                  checkboxInput("popsshap", label = "SHAP", value = F),
                   checkboxInput("pops.filter", label = "Pre-filter", value = T),
-                  downloadButton("download.pops", label = "Download POPS staging", style = "width:100%;" ),
-		  actionButton("pops.hypnogram", "Use POPS staging", width="100%"),
-		  actionButton("orig.hypnogram", "Use observed staging", width="100%")
+                  downloadButton("download.pops", label = "Download POPS staging", style = "width:100%;"),
+                  actionButton("pops.hypnogram", "Use POPS staging", width = "100%"),
+                  actionButton("orig.hypnogram", "Use observed staging", width = "100%")
                 )
               ),
               tabsetPanel(
@@ -390,7 +390,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
               fluidRow(
                 column(4, selectInput("reref1", label = h5("Channel(s)"), choices = list(), multiple = T, selectize = F)),
                 column(4, selectInput("reref2", label = h5("Reference(s)"), choices = list(), multiple = T, selectize = F)),
-                column(2, hr(col = "white"), actionButton("doreref", "Re-reference"), hr(col = "white"), actionButton( "do.cmref", "CM reference" ) )
+                column(2, hr(col = "white"), actionButton("doreref", "Re-reference"), hr(col = "white"), actionButton("do.cmref", "CM reference"))
               )
             ),
             tabPanel(
