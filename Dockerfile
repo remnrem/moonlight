@@ -16,10 +16,18 @@ RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libxml2-dev \
     libomp-dev \
-    cmake \
     libxt6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Download and Install CMake (Adjust the version number and URL as needed)
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-Linux-x86_64.sh \
+    && chmod +x cmake-3.20.2-Linux-x86_64.sh \
+    && ./cmake-3.20.2-Linux-x86_64.sh --skip-license --prefix=/usr/local \
+    && rm cmake-3.20.2-Linux-x86_64.sh
+
+# Verify Installation
+RUN cmake --version
 
 WORKDIR /Programme
 
