@@ -1692,7 +1692,7 @@ server <- function(input, output, session) {
       # need to make XXX_FLT?
       if (!flt %in% values$opt[["chs"]]) {
         # copy
-        leval(paste("COPY sig=", cen, " tag=", fstr, sep = ""))
+        leval(paste("COPY sig=", cen, " tag=_", fstr, sep = ""))
         # optionally, filter
         if (input$pops.filter) {
           leval(paste("FILTER sig=", flt, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
@@ -1702,7 +1702,7 @@ server <- function(input, output, session) {
       # need to make XXX_FLT_NORM?
       # (done from the FLT version)
       if (!zen %in% values$opt[["chs"]]) {
-        leval(paste("COPY sig=", flt, " tag=NORM", sep = ""))
+        leval(paste("COPY sig=", flt, " tag=_NORM", sep = ""))
         leval(paste("ROBUST-NORM sig=", zen, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
@@ -1727,23 +1727,23 @@ server <- function(input, output, session) {
 
       # need to make XXX_FLT? (1, 2)
       if (!flt1 %in% values$opt[["chs"]]) {
-        leval(paste("COPY sig=", cen1, " tag=", fstr, sep = ""))
+        leval(paste("COPY sig=", cen1, " tag=_", fstr, sep = ""))
         if (input$pops.filter) leval(paste("FILTER sig=", flt1, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
       }
 
       if (!flt2 %in% values$opt[["chs"]]) {
-        leval(paste("COPY sig=", cen2, " tag=", fstr, sep = ""))
+        leval(paste("COPY sig=", cen2, " tag=_", fstr, sep = ""))
         if (input$pops.filter) leval(paste("FILTER sig=", flt2, " fft bandpass=0.3,35 tw=0.5 ripple=0.02", sep = ""))
       }
 
       # need to make XXX_FLT_NORM? (1, 2)
       if (!zen1 %in% values$opt[["chs"]]) {
-        leval(paste("COPY sig=", flt1, " tag=NORM", sep = ""))
+        leval(paste("COPY sig=", flt1, " tag=_NORM", sep = ""))
         leval(paste("ROBUST-NORM sig=", zen1, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
       if (!zen2 %in% values$opt[["chs"]]) {
-        leval(paste("COPY sig=", flt2, " tag=NORM", sep = ""))
+        leval(paste("COPY sig=", flt2, " tag=_NORM", sep = ""))
         leval(paste("ROBUST-NORM sig=", zen2, " epoch winsor=0.005 second-norm=T", sep = ""))
       }
 
