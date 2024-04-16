@@ -251,7 +251,7 @@ ui <- fluidPage( # theme = shinytheme("yeti"),
                   )
                 ),
                 column(
-                  3, hr(), actionButton("pops.run", "Run POPS", width = "100%"),
+                  3, hr(), shinyjs::useShinyjs(), actionButton("pops.run", "Run POPS", width = "100%"),
                   actionButton("do.cmref.pops", "Do CM re-referencing", width = "100%"),
                   checkboxInput("popsshap", label = "SHAP", value = F),
                   checkboxInput("pops.filter", label = "Pre-filter", value = T),

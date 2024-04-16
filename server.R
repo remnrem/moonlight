@@ -668,6 +668,7 @@ server <- function(input, output, session) {
   # update hypnogram
 
   update.hypnogram <- function() {
+    
     req(values$hasstaging)
 
     try(ret <- leval(paste("HYPNO epoch lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")))
@@ -1109,6 +1110,7 @@ server <- function(input, output, session) {
     txtPath <- tempfile(fileext = ".annot")
     write.table(values$pops[["pops.download"]], file = txtPath, sep = "\t", row.names = F, col.names = T, quote = F)
     ledf(values$opt[["edfpath"]], "", txtPath)
+    values$hasstaging <- TRUE
     update.hypnogram()
   })
 
