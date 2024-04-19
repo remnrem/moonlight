@@ -1577,7 +1577,7 @@ server <- function(input, output, session) {
 
     # always make a copy, i.e. so as not to change SR for original
     if (!paste(input$soap.ch, "SOAP", sep = "_") %in% values$opt[["chs"]]) {
-      leval(paste("COPY sig=", input$soap.ch, " tag=SOAP", sep = ""))
+      leval(paste("COPY sig=", input$soap.ch, " tag=_SOAP", sep = ""))
     }
 
     # run SOAP on the copy, XXX_SOAP
