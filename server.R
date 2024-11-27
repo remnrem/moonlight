@@ -529,6 +529,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "pops.m1.eeg1", choices = "", label = NULL, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = "", label = NULL, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = "", label = NULL, selected = 0)
+      
 
       # Sleep norms panel
       updateSelectInput(session, "norm.eegF", choices = "", label = NULL, selected = 0)
@@ -812,6 +813,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "pops.m1.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg1", choices = s50, selected = 0)
       updateSelectInput(session, "pops.m2.eeg2", choices = s50, selected = 0)
+      updateSelectInput(session, "mod1.ch", label = NULL, choices = c(s50), selected = 0)
 
       updateSelectInput(session, "norm.eegF", label = NULL, choices = c("--none--", s50), selected = 0) # ifelse(is.na(first.eeg), 0, s50[first.eeg]) )
       updateSelectInput(session, "norm.eegC", label = NULL, choices = c("--none--", s50), selected = 0)
@@ -2717,7 +2719,79 @@ server <- function(input, output, session) {
     }
   })
 
-
+  # ------------------------------------------------------------
+  # Prediction models : adult age (Sun)
+  #
+  output$mod1.lab <- renderText({
+    "Sun et al (2019) |  Brain age from the electroencephalogram of sleep | doi: 10.1016/j.neurobiolaging.2018.10.016"
+  })
+  output$mod1.inp <- renderText({
+    "Inputs: one or more mastoid-referenced central EEG channels and sleep staging"
+  })
+  output$mod1.out <- renderText({
+    "Primary output: Y1 = bias-adjusted predicted age (years)"
+  })
+  output$mod1.notes <- renderText({
+    "Usage: appropriate for older adults (~40-80 years) with staged, whole-night sleep data"
+  })
+  # run actual prediction
+  observeEvent(input$do.mod1, {
+    req(values$hasedf, values$hasstaging)
+    lset("age", input$mod1.age)
+    lset("th", input$mod1.th)
+    lset("cen", paste( input$mod1.ch, collapse="," ) )
+    lset("mpath", "models/")
+    k <- leval(lcmd("models/m1-adult-age-luna.txt"))
+    okay <- k$PREDICT$BL$OKAY == 1
+    if (okay) {
+      values$mods[["mod1"]] <- list(T1 = k$PREDICT$BL, T2 = k$PREDICT$FTR)
+    } else {
+      values$mods[["mod1"]] <- list(T1 = k$PREDICT$BL, T2 = NULL)
+    }
+  })
+  # outputs
+  output$mod1.out1 <- DT::renderDataTable({
+    req(values$mods[["mod1"]])
+    df <- values$mods[["mod1"]]$T1
+    df$ID <- NULL
+    df$Y <- round(df$Y, 2)
+    df$Y1 <- round(df$Y1, 2)
+    df <- df[, c("OKAY", "NF", "NF_OBS", "YOBS", "Y", "Y1")]
+    DT::datatable(df,
+                  options = list(
+                    scrollX = "100%",
+                    paging = F, ordering = F,
+                    info = FALSE,
+                    searching = FALSE,
+                    columnDefs = list(list(className = "dt-center", targets = "_all"))
+                  ),
+                  rownames = FALSE
+    )
+  })
+  output$mod1.out2 <- DT::renderDataTable({
+    req(values$mods[["mod1"]]$T2)
+    df <- values$mods[["mod1"]]$T2
+    df$ID <- NULL
+    df$D <- round(df$D, 3)
+    df$X <- round(df$X, 3)
+    df$Z <- round(df$Z, 3)
+    if (!("REIMP" %in% names(df))) df$REIMP <- 0
+    df <- df[, c("FTR", "X", "Z", "D", "IMP", "REIMP")]
+    DT::datatable(df,
+                  options = list(
+                    scrollY = "200px",
+                    scrollX = "100%",
+                    dom = "tB",
+                    buttons = list(list(extend = "copy", text = "Copy")),
+                    paging = F, ordering = F,
+                    info = FALSE,
+                    searching = FALSE,
+                    columnDefs = list(list(className = "dt-center", targets = 1:5))
+                  ),
+                  rownames = FALSE
+    )
+  })
+  
 
   # ------------------------------------------------------------
   # Harmonization of channels & labels
@@ -3576,6 +3650,37 @@ server <- function(input, output, session) {
   })
 
 
+  observeEvent(input$do.cmref, {
+    req( values$hasedf )
+    chs <- values$opt[["chs"]]
+    req( "A1" %in% chs | "M1" %in% chs )
+    req( "A2" %in% chs | "M2" %in% chs )
+    
+    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
+    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
+    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
+    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
+    values$manipout <- capture.output(leval( cmds ) )
+    update()
+  })
+  observeEvent(input$do.cmref.pops, {
+    req( values$hasedf )    
+    chs <- values$opt[["chs"]]
+    req( "A1" %in% chs | "M1" %in% chs )
+    req( "A2" %in% chs | "M2" %in% chs )
+    
+    cmds <-           "REFERENCE sig=C3 ref=M2|A2 new=C3_M2"  
+    cmds <- c( cmds , "REFERENCE sig=C4 ref=M1|A1 new=C4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=F3 ref=M2|A2 new=F3_M2" )
+    cmds <- c( cmds , "REFERENCE sig=F4 ref=M1|A1 new=F4_M1" )
+    cmds <- c( cmds , "REFERENCE sig=O1 ref=M2|A2 new=O1_M2" )
+    cmds <- c( cmds , "REFERENCE sig=O2 ref=M1|A1 new=O2_M1" )
+    leval( cmds ) 
+    update()
+  })
+  
   observeEvent(input$moonbeam.indivs, {
     values$nsrr.indivs <- input$moonbeam.indivs
   })

@@ -34,7 +34,7 @@ library(shinyjs)
 # Options
 
 # Max EDF file size ( default = 200Mb ) here --> 3G
-options(shiny.maxRequestSize = 3000 * 1024^2)
+options(shiny.maxRequestSize = 4000 * 1024^2)
 
 # set error handler for lunaR
 lmoonlight_mode()
