@@ -1,0 +1,5 @@
+# Local
+docker build . -t moonlight-moonbeam-nov27-2024 --no-cache
+
+# Push to dockerhub
+docker buildx build --no-cache --platform=linux/arm64,linux/amd64 --push --tag remnrem/moonlight:latest .
