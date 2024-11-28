@@ -15,7 +15,6 @@ proxy:
     usage-stats-micrometer-prefix: shinyproxy
 
     docker:
-      cert-path: /home/none
       url: http://localhost:2375
       port-range-start: 20000
       port-range-max: 20016
@@ -23,13 +22,15 @@ proxy:
     specs:
     - id: moonlight
       display-name: Moonlight
+      description: Moonlight
       container-cmd: ["R", "-e", "shiny::runApp('/root/moon')"]
-      container-image: moonlight-moonbeam-sep26-2023
+      container-image: moonlight-moonbeam-nov27-2024
       max-instances: 1
     - id: hypnoscope
       display-name: Hypnoscope
+      description: Hypnoscope
       container-cmd: ["R", "-e", "shiny::runApp('/root/hypnoscope')"]
-      container-image: hypnoscope-dec04-2023
+      container-image: hypnoscope-apr25-2024
       max-instances: 1
 
 management:
