@@ -1586,14 +1586,15 @@ server <- function(input, output, session) {
     cmd <- paste("SOAP force-reload epoch sig=", input$soap.ch, "_SOAP lights-off=", values$LOFF, " lights-on=", values$LON, sep = "")
     ret <- leval(cmd)
 
-    values$soap[["soap"]] <- ret$SOAP$BL
-    values$soap[["soap.stages"]] <- ret$SOAP$SS
-    df <- ret$SOAP$E
+    values$soap[["soap"]] <- ret$SOAP$CH
+    values$soap[["soap.stages"]] <- ret$SOAP$CH_SS
+    df <- ret$SOAP$CH_E
     if (!any(names(df) == "PP_N1")) df$PP_N1 <- 0
     if (!any(names(df) == "PP_N2")) df$PP_N2 <- 0
     if (!any(names(df) == "PP_N3")) df$PP_N3 <- 0
     if (!any(names(df) == "PP_R")) df$PP_R <- 0
     if (!any(names(df) == "PP_W")) df$PP_W <- 0
+    
     df <- df[, c("E", "PRED", "PRIOR", "PP_N1", "PP_N2", "PP_N3", "PP_R", "PP_W")]
     df$FLAG <- 0
     values$soap[["soap.epochs"]] <- df
@@ -1614,6 +1615,9 @@ server <- function(input, output, session) {
     req(values$hasdata, values$hasstaging, values$variable.staging, values$soap)
 
     df <- values$soap[["soap"]]
+    
+    #browser()
+    
     df$ID <- NULL
     df <- df[, c("K", "K3", "ACC", "ACC3", "MCC", "MCC3", "F1", "F13")]
     df2 <- as.data.frame(t(df))
@@ -1624,6 +1628,7 @@ server <- function(input, output, session) {
       "Matthews correlation coefficient", "3-class Matthews correlation coefficient",
       "F1 statistic", "3-class F1 statistic"
     )
+    
     df2 <- df2[, c("VAR", "DESC", "VALUE")]
     df2$VALUE <- round(df2$VALUE, 2)
     DT::datatable(df2,
